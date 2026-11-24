@@ -20,6 +20,8 @@ Pennylane. Backend: NestJS in `apps/back`, Prisma + PostgreSQL (`docker-compose.
   present the plan and the list of files first.
 - After changes in `apps/back`: `npx prettier --write`, `npx oxlint src`,
   `npx tsc --noEmit -p .`, `npx vitest run src`.
+- Commit messages follow Conventional Commits (`type(scope): subject`),
+  enforced by commitlint; the husky pre-commit hook runs the four checks above.
 - Data migrations are hand-written and tested on a throwaway database
   ([persistence.md](docs/best-practices/persistence.md#migrations)).
 - When a decision is taken or a question settled, update `docs/project/`.

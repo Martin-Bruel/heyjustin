@@ -1,0 +1,6 @@
+# Same checks as the working agreement (CLAUDE.md), on the backend.
+cd apps/back
+npx prettier --check src
+npx oxlint --deny-warnings src
+npx tsc --noEmit -p .
+npx vitest run src
