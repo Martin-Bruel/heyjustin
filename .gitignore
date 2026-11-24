@@ -1,0 +1,4 @@
+# Each app ignores its own build output and secrets (apps/*/.gitignore).
+node_modules
+.DS_Store
+.env

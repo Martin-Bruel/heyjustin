@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/prisma/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id        String   @id @default(uuid(7))
+  name      String
+  createdAt DateTime @default(now())
+
+  users   User[]
+  tickets Ticket[]
+}
+
+model User {
+  id            String    @id @default(uuid(7))
+  companyId     String
+  channel       Channel // a user talks to us on exactly one messaging channel
+  externalId    String // the user on that channel: phone number on WhatsApp ("33612345678"), user id on Discord
+  lastInboundAt DateTime? // WhatsApp only: opens the 24-hour messaging window
+  createdAt     DateTime  @default(now())
+
+  company Company  @relation(fields: [companyId], references: [id])
+  tickets Ticket[]
+
+  @@unique([channel, externalId])
+}
+
+// Messaging app a ticket was received on
+enum Channel {
+  WHATSAPP
+  DISCORD
+}
+
+enum TicketStatus {
+  RECEIVED // photo downloaded, extraction in progress
+  AWAITING_VALIDATION // recap sent
+  PENDING_MATCH // imported, transaction not there yet
+  MATCHED
+  MANUAL // in Pennylane, to be matched by hand
+  FAILED // to be sent again
+  CANCELLED // recap rejected by the user
+  DUPLICATE
+}
+
+enum Reaction {
+  PENDING // 🕓
+  MATCHED // ✅
+  MANUAL // ⚠️
+  FAILED // ❌
+  DUPLICATE // 🔁
+  CANCELLED
+}
+
+model Ticket {
+  id        String       @id @default(uuid(7))
+  companyId String
+  userId    String
+  status    TicketStatus @default(RECEIVED)
+
+  // Messaging channel
+  channel           Channel   @default(WHATSAPP)
+  sourceMessageId   String // message id on the channel (wamid on WhatsApp): idempotency + reaction target
+  caption           String? // message sent with the document
+  displayedReaction Reaction?
+
+  // Mistral extraction
+  supplierName String?
+  issuedOn     DateTime? @db.Date
+  totalCents   Int? // including VAT
+  vatCents     Int?
+  currency     String    @default("EUR")
+
+  // Pennylane
+  pennylaneSupplierId    String?
+  pennylaneInvoiceId     String?
+  pennylaneTransactionId String?
+
+  failureReason String? // set when status is FAILED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company     @relation(fields: [companyId], references: [id])
+  user    User        @relation(fields: [userId], references: [id])
+  file    TicketFile?
+
+  @@unique([channel, sourceMessageId]) // message ids are only unique within a channel
+  @@index([companyId, status])
+}
+
+// Image or PDF received on WhatsApp, deleted once the ticket reaches a final state
+model TicketFile {
+  ticketId String  @id
+  mimeType String // image/jpeg, image/heic, application/pdf...
+  filename String? // only sent by WhatsApp for documents
+  data     Bytes
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}

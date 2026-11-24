@@ -1,0 +1,89 @@
+# Domain
+
+## What the product does
+
+Employees of a company send photos or PDFs of their receipts to a bot on a
+messaging app. The bot reads the receipt with AI, asks the employee to
+validate the recap, imports the invoice into Pennylane (the company's
+accounting software), then follows its matching with a bank transaction. The
+employee sees the progress through a reaction on their message.
+
+## Vocabulary
+
+| Term | Meaning |
+|---|---|
+| **Company** | A customer of the product, with its Pennylane account. |
+| **User** | An employee sending receipts. Belongs to one company, talks to us on **exactly one channel**. |
+| **Channel** | The messaging app (`WHATSAPP`, `DISCORD`). Owned by the `messaging` module. |
+| **External id** | The user on their channel: phone number on WhatsApp (`33612345678`), user id on Discord. |
+| **Ticket** | One receipt sent by a user, followed from reception to accounting. |
+| **Source message** | The user's message carrying the receipt: channel + message id. Idempotency key, target of reactions and replies. |
+| **Extraction** | What the AI read on the receipt: supplier, date, total (VAT included) and VAT in cents, currency. |
+| **Recap** | The message showing the extraction, with *Validate* / *Cancel* buttons. |
+| **Reaction** | The emoji put on the source message to show the ticket progress. |
+
+User-facing texts are in English, with day-first dates (en-GB format).
+
+## Ticket lifecycle
+
+```
+RECEIVED ──recordExtraction──▶ AWAITING_VALIDATION ──recordPennylaneImport──▶ PENDING_MATCH
+  │                               │                                             │
+  ├──markAsDuplicate──▶ DUPLICATE  ├──cancel──▶ CANCELLED                        ├──matchTransaction──▶ MATCHED
+  └──fail──▶ FAILED ◀─────────────┘ (fail)                                      └──requireManualMatching──▶ MANUAL
+```
+
+| Status | Meaning | Data | Reaction |
+|---|---|---|---|
+| `RECEIVED` | File stored, extraction in progress | — | 🕓 |
+| `AWAITING_VALIDATION` | Recap sent, waiting for the user | extraction | 🕓 |
+| `PENDING_MATCH` | Imported in Pennylane, bank transaction not there yet | extraction, Pennylane supplier + invoice ids | 🕓 |
+| `MATCHED` | Matched with a bank transaction (final) | + transaction id | ✅ |
+| `MANUAL` | No transaction found, to match by hand in Pennylane (final) | extraction, Pennylane ids | ⚠️ |
+| `FAILED` | Processing failed, the user must send it again (final) | reason, extraction if it got that far | ❌ |
+| `CANCELLED` | The user rejected the recap (final) | extraction | 🚫 |
+| `DUPLICATE` | Already sent before (final) | — | 🔁 |
+
+Source of truth in code: `tickets/models/ticket-state.ts` (data per status),
+`ticket-transitions.ts` (allowed transitions), `reaction.ts` (reaction per status).
+
+## Receiving a receipt (implemented)
+
+1. A user sends a message on their channel. `messaging` normalizes it.
+2. `users` identifies the sender from (channel, external id); unknown senders
+   are dropped there.
+3. `tickets` keeps messages with an image or PDF. Several receipts in one
+   message: none is processed, the user is asked to send one per message.
+4. The file is downloaded, the ticket is created `RECEIVED` with its file, 🕓 is shown.
+5. Extraction: success → `AWAITING_VALIDATION` and the recap is sent as a reply;
+   failure → `FAILED` with the error as reason, ❌ is shown.
+
+A message already turned into a ticket (same source message) is ignored.
+
+## Modules
+
+```
+src/
+├── messaging/   # generic transport: gateway + one strategy per app (discord/). Owns Channel.
+├── users/       # users and their channel; identifies senders (UserMessagesService)
+├── tickets/     # the ticket lifecycle, from reception to validation
+├── logging/     # JSON logger, per-flow log context, identifier hashing
+└── prisma/      # database client
+```
+
+Dependencies: `tickets → users → messaging`, everyone → `prisma`. Each module
+exposes its public API in `index.ts`.
+
+## Channels
+
+| Channel | Inbound | Status |
+|---|---|---|
+| Discord | Bot connected to the Discord Gateway (websocket), direct messages | Implemented |
+| WhatsApp | Meta webhook (HTTP, signature guard), one media per message | Not yet |
+
+## Environment
+
+Every variable is listed and explained in
+[`apps/back/.env.example`](../../apps/back/.env.example); copy it to `.env`.
+Each module validates its own variables at startup. Messaging channels are
+loaded only when configured (at least one is required).

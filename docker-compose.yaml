@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: justin
+    ports:
+      - 5432:5432
+    volumes:
+      # keeps the data across `docker compose down`
+      - db-data:/var/lib/postgresql
+
+volumes:
+  db-data:
