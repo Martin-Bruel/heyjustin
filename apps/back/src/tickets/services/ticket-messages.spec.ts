@@ -1,4 +1,4 @@
-import { Extraction } from '../models/extraction.js';
+import { Extraction } from '../../receipts/index.js';
 import {
   formatValidationRecap,
   parseValidationButtonId,

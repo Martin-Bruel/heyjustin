@@ -1,6 +1,6 @@
 import { SourceMessage } from '../models/source-message.js';
 import type { Ticket as TicketRow } from '../../prisma/index.js';
-import { Extraction } from '../models/extraction.js';
+import { Extraction } from '../../receipts/index.js';
 import { PennylaneInfo } from '../models/pennylane-info.js';
 import { Ticket } from '../models/ticket.js';
 import { InconsistentTicketRowError } from './inconsistent-ticket-row.error.js';

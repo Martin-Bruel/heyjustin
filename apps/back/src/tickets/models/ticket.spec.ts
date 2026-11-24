@@ -1,8 +1,7 @@
 import { SourceMessage } from './source-message.js';
 import { Ticket } from './ticket.js';
-import { Extraction } from './extraction.js';
+import { Extraction } from '../../receipts/index.js';
 import { PennylaneInfo } from './pennylane-info.js';
-import { InvalidExtractionError } from '../errors/invalid-extraction.error.js';
 import { InvalidTicketTransitionError } from '../errors/invalid-ticket-transition.error.js';
 
 const newTicket = () =>
@@ -95,13 +94,5 @@ describe('Ticket reaction', () => {
     ticket.matchTransaction('tx_1');
     expect(ticket.expectedReaction).toBe('MATCHED');
     expect(ticket.isReactionOutdated).toBe(true);
-  });
-});
-
-describe('Extraction', () => {
-  it('rejects VAT above the total', () => {
-    expect(() => new Extraction('Acme', new Date(), 100, 200, 'EUR')).toThrow(
-      InvalidExtractionError,
-    );
   });
 });

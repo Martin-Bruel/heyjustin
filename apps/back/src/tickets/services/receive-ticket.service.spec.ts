@@ -6,11 +6,10 @@ import {
   type Channel,
 } from '../../messaging/index.js';
 import type { User, UserRepository } from '../../users/index.js';
-import { Extraction } from '../models/extraction.js';
+import { Extraction, ReceiptReaderService } from '../../receipts/index.js';
 import { SourceMessage } from '../models/source-message.js';
 import type { Ticket } from '../models/ticket.js';
 import { TicketFile } from '../models/ticket-file.js';
-import { InvoiceExtractorService } from './invoice-extractor.service.js';
 import type { TicketRepository } from '../repositories/ticket.repository.js';
 import { ExtractTicketService } from './extract-ticket.service.js';
 import {
@@ -58,14 +57,15 @@ function fakeUsers(users: User[]): UserRepository {
   } as unknown as UserRepository;
 }
 
-class FakeExtractor extends InvoiceExtractorService {
-  constructor(private readonly result: Extraction | Error) {
-    super();
-  }
-  async extract() {
-    if (this.result instanceof Error) throw this.result;
-    return this.result;
-  }
+/** The AI is an edge: faked by its result (its own spec uses a fake model). */
+function fakeReceiptReader(result: Extraction | Error): ReceiptReaderService {
+  const reader = {
+    read: async () => {
+      if (result instanceof Error) throw result;
+      return result;
+    },
+  } satisfies Record<keyof ReceiptReaderService, unknown>;
+  return reader as unknown as ReceiptReaderService;
 }
 
 /** A messaging app that records what we send, plugged into the real gateway. */
@@ -109,7 +109,7 @@ const document: IncomingDocument = {
   file: new TicketFile('image/jpeg', null, Buffer.from('fake')),
 };
 
-function setup(extractorResult: Extraction | Error = extraction) {
+function setup(readerResult: Extraction | Error = extraction) {
   const { repository: tickets, ...stored } = inMemoryTickets();
   const users = fakeUsers([alice]);
   const discord = new RecordingStrategy();
@@ -120,7 +120,7 @@ function setup(extractorResult: Extraction | Error = extraction) {
   const reactions = new TicketReactionService(tickets, notifier);
   const extract = new ExtractTicketService(
     tickets,
-    new FakeExtractor(extractorResult),
+    fakeReceiptReader(readerResult),
     notifier,
     reactions,
   );

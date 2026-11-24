@@ -18,7 +18,7 @@ employee sees the progress through a reaction on their message.
 | **External id** | The user on their channel: phone number on WhatsApp (`33612345678`), user id on Discord. |
 | **Ticket** | One receipt sent by a user, followed from reception to accounting. |
 | **Source message** | The user's message carrying the receipt: channel + message id. Idempotency key, target of reactions and replies. |
-| **Extraction** | What the AI read on the receipt: supplier, date, total (VAT included) and VAT in cents, currency. |
+| **Extraction** | What the AI read on the receipt: supplier, date, total (VAT included) and VAT in cents, currency. Owned by the `receipts` module. |
 | **Recap** | The message showing the extraction, with *Validate* / *Cancel* buttons. |
 | **Reaction** | The emoji put on the source message to show the ticket progress. |
 
@@ -55,8 +55,13 @@ Source of truth in code: `tickets/models/ticket-state.ts` (data per status),
 3. `tickets` keeps messages with an image or PDF. Several receipts in one
    message: none is processed, the user is asked to send one per message.
 4. The file is downloaded, the ticket is created `RECEIVED` with its file, 🕓 is shown.
-5. Extraction: success → `AWAITING_VALIDATION` and the recap is sent as a reply;
-   failure → `FAILED` with the error as reason, ❌ is shown.
+5. Extraction, one AI call with the file
+   ([decision 010](decisions/010-ai-extraction.md)): success →
+   `AWAITING_VALIDATION` and the recap is sent as a reply; failure or
+   rejection → `FAILED` with the reason, ❌ is shown.
+
+Rejected for now: credit notes and refunds, several VAT rates on one
+receipt, several receipts in one document, missing or unreadable fields.
 
 A message already turned into a ticket (same source message) is ignored.
 
@@ -67,11 +72,13 @@ src/
 ├── messaging/   # generic transport: gateway + one strategy per app (discord/). Owns Channel.
 ├── users/       # users and their channel; identifies senders (UserMessagesService)
 ├── tickets/     # the ticket lifecycle, from reception to validation
+├── receipts/    # what a receipt is and how it is read: schema, prompt, rules. Owns Extraction.
+├── ai/          # language models (@nestjs/ai): provider by config, generic document reading, no business
 ├── logging/     # JSON logger, per-flow log context, identifier hashing
 └── prisma/      # database client
 ```
 
-Dependencies: `tickets → users → messaging`, everyone → `prisma`. Each module
+Dependencies: `tickets → users → messaging`, `tickets → receipts → ai`, everyone → `prisma`. Each module
 exposes its public API in `index.ts`.
 
 ## Channels
@@ -86,4 +93,5 @@ exposes its public API in `index.ts`.
 Every variable is listed and explained in
 [`apps/back/.env.example`](../../apps/back/.env.example); copy it to `.env`.
 Each module validates its own variables at startup. Messaging channels are
-loaded only when configured (at least one is required).
+loaded only when configured (at least one is required). The AI provider
+and model are chosen with `AI_PROVIDER` and `AI_EXTRACTION_MODEL`.

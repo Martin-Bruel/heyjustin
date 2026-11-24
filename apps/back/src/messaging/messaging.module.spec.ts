@@ -7,7 +7,9 @@
  * taken again with that scenario's env.
  */
 async function compileWith(env: Record<string, string | undefined>) {
-  const previous = { ...process.env };
+  const previous = Object.entries(env).map(
+    ([name]) => [name, process.env[name]] as const,
+  );
   for (const [name, value] of Object.entries(env)) {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
@@ -27,7 +29,11 @@ async function compileWith(env: Record<string, string | undefined>) {
     }).compile();
     return moduleRef.get(MessagingGateway);
   } finally {
-    process.env = previous;
+    // in place: process.env is a special object, never replace it
+    for (const [name, value] of previous) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
   }
 }
 

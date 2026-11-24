@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MessagingGateway } from '../../messaging/index.js';
 import { type User, UserRepository } from '../../users/index.js';
 import { TicketRecipientUnavailableError } from '../errors/ticket-recipient-unavailable.error.js';
-import type { Extraction } from '../models/extraction.js';
+import type { Extraction } from '../../receipts/index.js';
 import type { Reaction } from '../models/reaction.js';
 import type { SourceMessage } from '../models/source-message.js';
 import type { Ticket } from '../models/ticket.js';

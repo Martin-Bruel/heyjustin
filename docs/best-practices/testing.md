@@ -10,9 +10,13 @@ Example: the ticket flow test uses the real `MessagingGateway` and the real
 notifier, with a fake strategy recording what would be sent. It checks the
 whole path down to the message, not just that a mock was called.
 
+For AI calls, fake the model, not the service: the real `AiService` with
+`FakeModel` (`@nestjs/ai/testing`) also covers the schema validation, the
+error mapping and what is sent to the model, without network.
+
 ## Faking a class
 
-- A class with no private field: extend it and override (`class FakeExtractor extends InvoiceExtractorService`).
+- A class with no private field: extend it and override (`class FakeClock extends Clock`).
 - A class with a private field (`private readonly prismaService`): TypeScript
   refuses another class in its place. Use a plain object, checked against the
   public API, then cast:

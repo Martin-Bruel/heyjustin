@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Extraction } from '../models/extraction.js';
+import { type Extraction, ReceiptReaderService } from '../../receipts/index.js';
 import type { Ticket } from '../models/ticket.js';
 import { TicketRepository } from '../repositories/ticket.repository.js';
-import { InvoiceExtractorService } from './invoice-extractor.service.js';
 import { TicketNotifierService } from './ticket-notifier.service.js';
 import { TicketReactionService } from './ticket-reaction.service.js';
 import { TICKET_LOG_EVENTS } from '../ticket-log-events.js';
@@ -18,7 +17,7 @@ export class ExtractTicketService {
 
   constructor(
     private readonly ticketRepository: TicketRepository,
-    private readonly invoiceExtractorService: InvoiceExtractorService,
+    private readonly receiptReaderService: ReceiptReaderService,
     private readonly ticketNotifierService: TicketNotifierService,
     private readonly ticketReactionService: TicketReactionService,
   ) {}
@@ -50,7 +49,7 @@ export class ExtractTicketService {
 
     const startedAt = Date.now();
     try {
-      const extraction = await this.invoiceExtractorService.extract(file);
+      const extraction = await this.receiptReaderService.read(file);
       this.logger.log('Extraction succeeded', {
         event: TICKET_LOG_EVENTS.extractionSucceeded,
         durationMs: Date.now() - startedAt,

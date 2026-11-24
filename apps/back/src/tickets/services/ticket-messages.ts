@@ -1,5 +1,5 @@
 import type { MessageButton } from '../../messaging/index.js';
-import type { Extraction } from '../models/extraction.js';
+import type { Extraction } from '../../receipts/index.js';
 import type { Reaction } from '../models/reaction.js';
 
 /**

@@ -1,4 +1,4 @@
-import type { Extraction } from './extraction.js';
+import type { Extraction } from '../../receipts/index.js';
 import type { SourceMessage } from './source-message.js';
 import type { PennylaneInfo } from './pennylane-info.js';
 import type { TicketState, TicketStatus } from './ticket-state.js';

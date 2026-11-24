@@ -1,4 +1,4 @@
-import type { Extraction } from './extraction.js';
+import type { Extraction } from '../../receipts/index.js';
 import type { PennylaneInfo } from './pennylane-info.js';
 
 /**

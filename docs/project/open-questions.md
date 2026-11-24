@@ -18,8 +18,12 @@ Settle these before building on them; turn a settled point into a decision recor
 
 ## Not built yet
 
-- AI extraction (`InvoiceExtractorService` throws "not implemented") with
-  `@nestjs/ai`: until then every receipt ends `FAILED` (❌).
+- Extraction accuracy is not measured: no evaluation set of real receipts
+  yet. Needed before changing the model, the provider or the prompt.
+- AI cost is not reported: no `pricing` on the models (tokens are logged).
+- Several VAT rates and credit notes are rejected (decision 010).
+- With `openai-compatible`, PDF support depends on the server: Mistral reads
+  images and PDF, many local servers only images.
 - Scenario 2: handling the *Validate* / *Cancel* clicks
   (`parseValidationButtonId` is ready), then the Pennylane import and matching.
 - WhatsApp strategy (webhook controller, signature guard, `rawBody: true`).

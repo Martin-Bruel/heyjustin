@@ -39,7 +39,8 @@ docker-compose.yaml local PostgreSQL
 
 ## Getting started
 
-Requirements: Node.js, Docker, and a Discord bot token.
+Requirements: Node.js, Docker, a Discord bot token and a Mistral API key
+(or any OpenAI-compatible API, see `.env.example`).
 
 ```bash
 docker compose up -d
