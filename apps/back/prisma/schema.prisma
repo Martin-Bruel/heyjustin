@@ -8,9 +8,11 @@ datasource db {
 }
 
 model Company {
-  id        String   @id @default(uuid(7))
-  name      String
-  createdAt DateTime @default(now())
+  id                String   @id @default(uuid(7))
+  name              String
+  // Pennylane company API token, encrypted (companies/token-cipher.ts); a token belongs to one company
+  pennylaneApiToken String?
+  createdAt         DateTime @default(now())
 
   users   User[]
   tickets Ticket[]
@@ -69,11 +71,16 @@ model Ticket {
   displayedReaction Reaction?
 
   // Mistral extraction
-  supplierName String?
-  issuedOn     DateTime? @db.Date
-  totalCents   Int? // including VAT
-  vatCents     Int?
-  currency     String    @default("EUR")
+  supplierName               String?
+  supplierVatNumber          String? // as read, normalized (FR12345678901)
+  supplierRegistrationNumber String? // SIREN, as read or derived from a French VAT number
+  matchedSupplierId          String? // Pennylane supplier matched at extraction; null = a new supplier
+  matchedSupplierName        String? // its name in Pennylane, shown in the recap
+  issuedOn                   DateTime? @db.Date
+  totalCents                 Int? // including VAT
+  vatCents                   Int?
+  vatRateBasisPoints         Int? // 2000 = 20%; null when no rate is printed
+  currency                   String    @default("EUR")
 
   // Pennylane
   pennylaneSupplierId    String?

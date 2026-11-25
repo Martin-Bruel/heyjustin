@@ -68,9 +68,28 @@ export function formatValidationRecap(extraction: Extraction): string {
 
   return [
     '🧾 New receipt',
-    `Supplier: ${extraction.supplierName}`,
+    `Supplier: ${supplierLine(extraction)}`,
     `Date: ${date.format(extraction.issuedOn)}`,
     `Total (incl. VAT): ${money.format(extraction.totalCents / 100)}`,
-    `VAT: ${money.format(extraction.vatCents / 100)}`,
+    `${vatLabel(extraction.vatRateBasisPoints)}: ${money.format(extraction.vatCents / 100)}`,
   ].join('\n');
+}
+
+/** The supplier the invoice will go to: an existing one, or a new one. */
+function supplierLine({ supplier }: Extraction): string {
+  return supplier.known
+    ? `${supplier.known.name} (existing in Pennylane)`
+    : `${supplier.name} (new in Pennylane)`;
+}
+
+const percent = new Intl.NumberFormat('en-GB', {
+  style: 'percent',
+  maximumFractionDigits: 2,
+});
+
+/** `VAT (20%)`, or `VAT` when the receipt prints no rate. */
+function vatLabel(rateBasisPoints: number | null): string {
+  return rateBasisPoints === null
+    ? 'VAT'
+    : `VAT (${percent.format(rateBasisPoints / 10_000)})`;
 }

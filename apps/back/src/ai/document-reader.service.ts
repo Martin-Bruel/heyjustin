@@ -37,6 +37,8 @@ export interface ReadDocumentRequest<S extends AiSchema> {
   schemaName: string;
   /** System prompt: what to read and how. */
   instructions: string;
+  /** Data sent with the document (e.g. a list to choose from); not instructions. */
+  context?: string;
   /** Names the call in usage logs. */
   label: string;
 }
@@ -65,6 +67,7 @@ export class DocumentReaderService {
       label: request.label,
       mimeType: document.mimeType,
       sizeBytes: document.data.length,
+      contextLength: request.context?.length ?? 0,
     });
     try {
       const { object, text, finishReason } =
@@ -85,6 +88,9 @@ export class DocumentReaderService {
                   ...(document.filename ? { filename: document.filename } : {}),
                 },
                 { type: 'text', text: READ_REQUEST },
+                ...(request.context
+                  ? [{ type: 'text' as const, text: request.context }]
+                  : []),
               ],
             },
           ],

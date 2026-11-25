@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/index.js';
 import { ReceiptReaderService } from './services/receipt-reader.service.js';
+import { SupplierMatcherService } from './services/supplier-matcher.service.js';
 
 /**
  * Receipts: what a receipt is and how it is read (schema, prompt, the rules
@@ -11,7 +12,7 @@ import { ReceiptReaderService } from './services/receipt-reader.service.js';
  */
 @Module({
   imports: [AiModule],
-  providers: [ReceiptReaderService],
+  providers: [ReceiptReaderService, SupplierMatcherService],
   exports: [ReceiptReaderService],
 })
 export class ReceiptsModule {}

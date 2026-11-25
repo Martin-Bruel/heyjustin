@@ -5,8 +5,18 @@ import {
   MessagingGateway,
   type Channel,
 } from '../../messaging/index.js';
+import type { CompanyRepository } from '../../companies/index.js';
+import {
+  PennylaneApiError,
+  type PennylaneSupplier,
+  type PennylaneSuppliersService,
+} from '../../pennylane/index.js';
 import type { User, UserRepository } from '../../users/index.js';
-import { Extraction, ReceiptReaderService } from '../../receipts/index.js';
+import {
+  Extraction,
+  type KnownSupplier,
+  ReceiptReaderService,
+} from '../../receipts/index.js';
 import { SourceMessage } from '../models/source-message.js';
 import type { Ticket } from '../models/ticket.js';
 import { TicketFile } from '../models/ticket-file.js';
@@ -58,14 +68,43 @@ function fakeUsers(users: User[]): UserRepository {
 }
 
 /** The AI is an edge: faked by its result (its own spec uses a fake model). */
-function fakeReceiptReader(result: Extraction | Error): ReceiptReaderService {
+function fakeReceiptReader(result: Extraction | Error) {
+  const suppliersSeen: (readonly KnownSupplier[])[] = [];
   const reader = {
-    read: async () => {
+    read: async (
+      _document: unknown,
+      knownSuppliers: readonly KnownSupplier[],
+    ) => {
+      suppliersSeen.push(knownSuppliers);
       if (result instanceof Error) throw result;
       return result;
     },
   } satisfies Record<keyof ReceiptReaderService, unknown>;
-  return reader as unknown as ReceiptReaderService;
+  return { reader: reader as unknown as ReceiptReaderService, suppliersSeen };
+}
+
+function fakeCompanies(token: string | null): CompanyRepository {
+  const companies = {
+    findPennylaneToken: async () => token,
+    upsertWithPennylaneToken: async () => {},
+  } satisfies Record<keyof CompanyRepository, unknown>;
+  return companies as unknown as CompanyRepository;
+}
+
+/** Pennylane is an edge: faked by its suppliers (its own spec fakes HTTP). */
+function fakePennylaneSuppliers(
+  result: PennylaneSupplier[] | Error,
+): PennylaneSuppliersService {
+  const suppliers = {
+    list: async () => {
+      if (result instanceof Error) throw result;
+      return result;
+    },
+    create: async () => {
+      throw new Error('not expected');
+    },
+  } satisfies Record<keyof PennylaneSuppliersService, unknown>;
+  return suppliers as unknown as PennylaneSuppliersService;
 }
 
 /** A messaging app that records what we send, plugged into the real gateway. */
@@ -88,13 +127,19 @@ class RecordingStrategy extends ChannelStrategy {
 
 // --- Setup ---
 
-const extraction = new Extraction(
-  'Acme',
-  new Date('2026-11-01'),
-  1200,
-  200,
-  'EUR',
-);
+const extraction = new Extraction({
+  supplier: {
+    name: 'Acme',
+    vatNumber: null,
+    registrationNumber: null,
+    known: null,
+  },
+  issuedOn: new Date('2026-11-01'),
+  totalCents: 1200,
+  vatCents: 200,
+  vatRateBasisPoints: 2000,
+  currency: 'EUR',
+});
 
 const alice: User = {
   id: 'u1',
@@ -109,7 +154,20 @@ const document: IncomingDocument = {
   file: new TicketFile('image/jpeg', null, Buffer.from('fake')),
 };
 
-function setup(readerResult: Extraction | Error = extraction) {
+const easyJet: PennylaneSupplier = {
+  id: 7,
+  name: 'easyJet',
+  vatNumber: 'GB745360068',
+  regNo: null,
+};
+
+function setup(
+  readerResult: Extraction | Error = extraction,
+  pennylane: {
+    token?: string | null;
+    suppliers?: PennylaneSupplier[] | Error;
+  } = {},
+) {
   const { repository: tickets, ...stored } = inMemoryTickets();
   const users = fakeUsers([alice]);
   const discord = new RecordingStrategy();
@@ -118,14 +176,19 @@ function setup(readerResult: Extraction | Error = extraction) {
     users,
   );
   const reactions = new TicketReactionService(tickets, notifier);
+  const { reader, suppliersSeen } = fakeReceiptReader(readerResult);
   const extract = new ExtractTicketService(
     tickets,
-    fakeReceiptReader(readerResult),
+    fakeCompanies(
+      pennylane.token === undefined ? 'company-token' : pennylane.token,
+    ),
+    fakePennylaneSuppliers(pennylane.suppliers ?? [easyJet]),
+    reader,
     notifier,
     reactions,
   );
   const service = new ReceiveTicketService(tickets, reactions, extract);
-  return { service, tickets: stored, discord };
+  return { service, tickets: stored, discord, suppliersSeen };
 }
 
 // --- Tests ---
@@ -158,6 +221,57 @@ describe('ReceiveTicketService', () => {
       `ticket:validate:${ticket!.id}`,
       `ticket:cancel:${ticket!.id}`,
     ]);
+  });
+
+  it("reads the receipt with the company's Pennylane suppliers", async () => {
+    const { service, suppliersSeen } = setup();
+
+    await service.receive(alice, document);
+
+    expect(suppliersSeen).toEqual([
+      [
+        {
+          id: '7',
+          name: 'easyJet',
+          vatNumber: 'GB745360068',
+          registrationNumber: null,
+        },
+      ],
+    ]);
+  });
+
+  it('fails without reading when the company has no Pennylane token', async () => {
+    const { service, discord, suppliersSeen } = setup(extraction, {
+      token: null,
+    });
+
+    const ticket = await service.receive(alice, document);
+
+    expect(ticket!.state).toEqual({
+      status: 'FAILED',
+      reason: 'Pennylane is not connected for this company',
+      extraction: null,
+    });
+    expect(suppliersSeen).toEqual([]);
+    expect(discord.reactions.map((r) => r.emoji)).toEqual(['🕓', '❌']);
+  });
+
+  it('fails without reading when Pennylane refuses the token', async () => {
+    const { service, suppliersSeen } = setup(extraction, {
+      suppliers: new PennylaneApiError('unauthorized', {
+        method: 'GET',
+        path: '/suppliers',
+        status: 401,
+      }),
+    });
+
+    const ticket = await service.receive(alice, document);
+
+    expect(ticket!.state).toMatchObject({
+      status: 'FAILED',
+      reason: 'Pennylane token invalid or expired',
+    });
+    expect(suppliersSeen).toEqual([]);
   });
 
   it('marks the ticket FAILED when the extraction fails', async () => {

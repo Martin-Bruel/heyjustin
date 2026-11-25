@@ -73,6 +73,24 @@ describe('DocumentReaderService', () => {
     expect(call?.options.topP).toBe(1);
   });
 
+  it('sends the context after the document, when there is one', async () => {
+    const { reader, model } = await setup({ object: { supplierName: 'Acme' } });
+
+    await reader.read({
+      document,
+      schema,
+      schemaName: 'receipt',
+      instructions: 'Read the supplier.',
+      context: 'Known suppliers: 1 | Acme',
+      label: 'test-reading',
+    });
+
+    const prompt = JSON.stringify(model.lastCall?.options.prompt);
+    expect(prompt.indexOf('"type":"file"')).toBeLessThan(
+      prompt.indexOf('Known suppliers: 1 | Acme'),
+    );
+  });
+
   it('hides an answer that does not match the schema', async () => {
     const { reader } = await setup({ object: { supplier: 'Acme, 12 rue X' } });
 
@@ -130,6 +148,7 @@ describe('DocumentReaderService', () => {
           label: 'test-reading',
           mimeType: 'image/jpeg',
           sizeBytes: 10,
+          contextLength: 0,
         },
       ],
       [

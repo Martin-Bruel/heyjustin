@@ -5,7 +5,7 @@ import { UserMessagesService } from './services/user-messages.service.js';
 import { UserRepository } from './repositories/user.repository.js';
 
 /**
- * Users and companies, and the messages they send (sender identified).
+ * Users, and the messages they send (sender identified).
  * Depends on messaging, never the other way around. Must not import business
  * modules that depend on it (e.g. tickets).
  */

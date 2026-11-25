@@ -18,7 +18,7 @@ employee sees the progress through a reaction on their message.
 | **External id** | The user on their channel: phone number on WhatsApp (`33612345678`), user id on Discord. |
 | **Ticket** | One receipt sent by a user, followed from reception to accounting. |
 | **Source message** | The user's message carrying the receipt: channel + message id. Idempotency key, target of reactions and replies. |
-| **Extraction** | What the AI read on the receipt: supplier, date, total (VAT included) and VAT in cents, currency. Owned by the `receipts` module. |
+| **Extraction** | What the AI read on the receipt: supplier (name, VAT number and SIREN if printed, the matched Pennylane supplier if any), date, total (VAT included) and VAT in cents, VAT rate in basis points (if printed), currency. Owned by the `receipts` module. |
 | **Recap** | The message showing the extraction, with *Validate* / *Cancel* buttons. |
 | **Reaction** | The emoji put on the source message to show the ticket progress. |
 
@@ -55,8 +55,12 @@ Source of truth in code: `tickets/models/ticket-state.ts` (data per status),
 3. `tickets` keeps messages with an image or PDF. Several receipts in one
    message: none is processed, the user is asked to send one per message.
 4. The file is downloaded, the ticket is created `RECEIVED` with its file, 🕓 is shown.
-5. Extraction, one AI call with the file
-   ([decision 010](decisions/010-ai-extraction.md)): success →
+5. The company's Pennylane suppliers are listed (no token or Pennylane
+   down → `FAILED`, ❌).
+6. Extraction, one AI call with the file and the suppliers
+   ([decision 010](decisions/010-ai-extraction.md)); the receipt is attached
+   to an existing supplier or marked as new
+   ([decision 012](decisions/012-supplier-matching.md)): success →
    `AWAITING_VALIDATION` and the recap is sent as a reply; failure or
    rejection → `FAILED` with the reason, ❌ is shown.
 
@@ -71,14 +75,17 @@ A message already turned into a ticket (same source message) is ignored.
 src/
 ├── messaging/   # generic transport: gateway + one strategy per app (discord/). Owns Channel.
 ├── users/       # users and their channel; identifies senders (UserMessagesService)
+├── companies/   # companies and their secrets (Pennylane token, encrypted)
 ├── tickets/     # the ticket lifecycle, from reception to validation
 ├── receipts/    # what a receipt is and how it is read: schema, prompt, rules. Owns Extraction.
 ├── ai/          # language models (@nestjs/ai): provider by config, generic document reading, no business
+├── pennylane/   # Pennylane API v2 client: suppliers, files, invoices; token passed per call, no business
 ├── logging/     # JSON logger, per-flow log context, identifier hashing
 └── prisma/      # database client
 ```
 
-Dependencies: `tickets → users → messaging`, `tickets → receipts → ai`, everyone → `prisma`. Each module
+Dependencies: `tickets → users → messaging`, `tickets → receipts → ai`,
+`tickets → companies`, `tickets → pennylane`, everyone → `prisma`. Each module
 exposes its public API in `index.ts`.
 
 ## Channels
@@ -95,3 +102,6 @@ Every variable is listed and explained in
 Each module validates its own variables at startup. Messaging channels are
 loaded only when configured (at least one is required). The AI provider
 and model are chosen with `AI_PROVIDER` and `AI_EXTRACTION_MODEL`.
+Pennylane tokens are per company, stored encrypted with
+`SECRETS_ENCRYPTION_KEY`; `PENNYLANE_API_TOKEN` creates a default company
+with its token at startup ([decision 011](decisions/011-pennylane-api-token.md)).

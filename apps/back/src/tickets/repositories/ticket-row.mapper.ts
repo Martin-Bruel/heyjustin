@@ -33,10 +33,15 @@ export function toTicketRow(ticket: Ticket) {
     status: state.status,
     displayedReaction: ticket.displayedReaction,
 
-    supplierName: extraction?.supplierName ?? null,
+    supplierName: extraction?.supplier.name ?? null,
+    supplierVatNumber: extraction?.supplier.vatNumber ?? null,
+    supplierRegistrationNumber: extraction?.supplier.registrationNumber ?? null,
+    matchedSupplierId: extraction?.supplier.known?.id ?? null,
+    matchedSupplierName: extraction?.supplier.known?.name ?? null,
     issuedOn: extraction?.issuedOn ?? null,
     totalCents: extraction?.totalCents ?? null,
     vatCents: extraction?.vatCents ?? null,
+    vatRateBasisPoints: extraction?.vatRateBasisPoints ?? null,
     currency: extraction?.currency ?? 'EUR',
 
     pennylaneSupplierId: pennylane?.supplierId ?? null,
@@ -108,13 +113,25 @@ function toState(row: TicketRow): TicketState {
 }
 
 function extractionOf(row: TicketRow): Extraction {
-  return new Extraction(
-    required(row, 'supplierName'),
-    required(row, 'issuedOn'),
-    required(row, 'totalCents'),
-    required(row, 'vatCents'),
-    row.currency,
-  );
+  return new Extraction({
+    supplier: {
+      name: required(row, 'supplierName'),
+      vatNumber: row.supplierVatNumber,
+      registrationNumber: row.supplierRegistrationNumber,
+      known:
+        row.matchedSupplierId === null
+          ? null
+          : {
+              id: row.matchedSupplierId,
+              name: required(row, 'matchedSupplierName'),
+            },
+    },
+    issuedOn: required(row, 'issuedOn'),
+    totalCents: required(row, 'totalCents'),
+    vatCents: required(row, 'vatCents'),
+    vatRateBasisPoints: row.vatRateBasisPoints,
+    currency: row.currency,
+  });
 }
 
 function pennylaneOf(row: TicketRow): PennylaneInfo {

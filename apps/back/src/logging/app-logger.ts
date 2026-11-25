@@ -17,6 +17,7 @@ export const REDACTED_FIELDS = [
   'token',
   'authorization',
   'apiKey',
+  'apiToken',
   'data', // file contents
 ];
 

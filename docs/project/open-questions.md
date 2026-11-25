@@ -25,7 +25,16 @@ Settle these before building on them; turn a settled point into a decision recor
 - With `openai-compatible`, PDF support depends on the server: Mistral reads
   images and PDF, many local servers only images.
 - Scenario 2: handling the *Validate* / *Cancel* clicks
-  (`parseValidationButtonId` is ready), then the Pennylane import and matching.
+  (`parseValidationButtonId` is ready), then the Pennylane import
+  (the `pennylane` module is ready) and the matching cron.
+- Pennylane, unverified against the real API: `import_as_incomplete` with
+  `vat_rate: mixed` for a non-French rate; whether a duplicate
+  `external_reference` is refused.
+- Supplier matching accuracy is not measured (only `supplierMatched` is
+  logged): to check on real receipts, with the evaluation set.
+- HEIC and WebP receipts: read by the AI, refused by Pennylane. Convert them
+  before the import, or refuse them at reception?
+- An expired Pennylane token (401): how the company is told.
 - WhatsApp strategy (webhook controller, signature guard, `rawBody: true`).
 - User onboarding: users are inserted by hand today.
 - Channel selection per install (self-hosting).

@@ -6,13 +6,19 @@ import { Ticket } from '../models/ticket.js';
 import { InconsistentTicketRowError } from './inconsistent-ticket-row.error.js';
 import { toTicket, toTicketRow } from './ticket-row.mapper.js';
 
-const extraction = new Extraction(
-  'Acme',
-  new Date('2026-11-01'),
-  1200,
-  200,
-  'EUR',
-);
+const extraction = new Extraction({
+  supplier: {
+    name: 'Acme SAS',
+    vatNumber: 'FR40123456789',
+    registrationNumber: '123456789',
+    known: { id: '42', name: 'Acme' },
+  },
+  issuedOn: new Date('2026-11-01'),
+  totalCents: 1200,
+  vatCents: 200,
+  vatRateBasisPoints: 2000,
+  currency: 'EUR',
+});
 const pennylane = new PennylaneInfo('sup_1', 'inv_1');
 
 const newTicket = () =>
@@ -72,5 +78,13 @@ describe('ticket row mapper', () => {
     };
     expect(() => toTicket(row)).toThrow(InconsistentTicketRowError);
     expect(() => toTicket(row)).toThrow(/status MATCHED but supplierName/);
+  });
+
+  it('rejects a matched supplier without its name', () => {
+    const ticket = newTicket();
+    ticket.recordExtraction(extraction);
+    const row: TicketRow = { ...asRow(ticket), matchedSupplierName: null };
+
+    expect(() => toTicket(row)).toThrow(/matchedSupplierName/);
   });
 });

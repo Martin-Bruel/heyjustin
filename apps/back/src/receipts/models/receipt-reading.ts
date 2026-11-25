@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ReceiptRejectedError } from '../errors/receipt-rejected.error.js';
-import { Extraction } from './extraction.js';
+import { Extraction, type KnownSupplierRef } from './extraction.js';
+import { supplierIdentifiersOf } from './supplier-identifiers.js';
 
 /**
  * What the AI answers for a document: the facts printed on it, not decisions.
@@ -29,6 +30,24 @@ export const receiptReadingSchema = z.object({
     .nullable()
     .describe(
       'Name of the merchant or company that issued the document, as printed. Not the customer.',
+    ),
+  supplierVatNumber: z
+    .string()
+    .nullable()
+    .describe(
+      "The supplier's intra-EU VAT number as printed (e.g. FR12345678901, GB123456789). Not the customer's.",
+    ),
+  supplierRegistrationNumber: z
+    .string()
+    .nullable()
+    .describe(
+      "The supplier's French SIREN (9 digits) or SIRET (14 digits) as printed. Not the customer's.",
+    ),
+  matchedSupplierId: z
+    .string()
+    .nullable()
+    .describe(
+      'The id of the known supplier that issued the document, from the list sent with it. null when none of them did, or when no list is sent.',
     ),
   issuedOn: z.string().nullable().describe('Issue date, formatted YYYY-MM-DD.'),
   totalAmount: z
@@ -62,10 +81,12 @@ const FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Turns the AI answer into an Extraction, or throws a ReceiptRejectedError
- * with a reason that never contains the document's data.
+ * with a reason that never contains the document's data. `knownSupplier`:
+ * the supplier it was matched with (SupplierMatcherService), `null` if new.
  */
 export function toExtraction(
   reading: ReceiptReading,
+  knownSupplier: KnownSupplierRef | null,
   now: Date = new Date(),
 ): Extraction {
   switch (reading.documentKind) {
@@ -114,13 +135,22 @@ export function toExtraction(
   if (!ISO_CURRENCY.test(currency)) throw missing('currency');
 
   // Extraction checks VAT ≤ total
-  return new Extraction(
-    supplierName,
+  return new Extraction({
+    supplier: {
+      name: supplierName,
+      ...readSupplierIdentifiers(reading),
+      known: knownSupplier,
+    },
     issuedOn,
-    toCents(reading.totalAmount),
-    toCents(reading.vatAmount),
+    totalCents: toCents(reading.totalAmount),
+    vatCents: toCents(reading.vatAmount),
+    // one distinct rate at most (checked above); 5.5 → 550
+    vatRateBasisPoints:
+      reading.vatRates.length > 0
+        ? Math.round(reading.vatRates[0] * 100)
+        : null,
     currency,
-  );
+  });
 }
 
 function parseDate(value: string | null): Date {
@@ -141,4 +171,12 @@ function toCents(amount: number): number {
 
 function missing(field: string): ReceiptRejectedError {
   return new ReceiptRejectedError(`the ${field} is missing or not readable`);
+}
+
+/** The supplier's identifiers printed on the receipt, normalized. */
+export function readSupplierIdentifiers(reading: ReceiptReading) {
+  return supplierIdentifiersOf(
+    reading.supplierVatNumber,
+    reading.supplierRegistrationNumber,
+  );
 }

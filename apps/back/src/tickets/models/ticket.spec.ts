@@ -12,13 +12,19 @@ const newTicket = () =>
     source: new SourceMessage('WHATSAPP', 'wamid.1'),
   });
 
-const extraction = new Extraction(
-  'Acme',
-  new Date('2026-11-01'),
-  1200,
-  200,
-  'EUR',
-);
+const extraction = new Extraction({
+  supplier: {
+    name: 'Acme',
+    vatNumber: null,
+    registrationNumber: null,
+    known: null,
+  },
+  issuedOn: new Date('2026-11-01'),
+  totalCents: 1200,
+  vatCents: 200,
+  vatRateBasisPoints: 2000,
+  currency: 'EUR',
+});
 const pennylane = new PennylaneInfo('sup_1', 'inv_1');
 
 describe('Ticket lifecycle', () => {

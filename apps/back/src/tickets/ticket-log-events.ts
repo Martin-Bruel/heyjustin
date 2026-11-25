@@ -10,6 +10,8 @@ export const TICKET_LOG_EVENTS = {
   statusChanged: 'ticket.status.changed',
   extractionSucceeded: 'ticket.extraction.succeeded',
   extractionFailed: 'ticket.extraction.failed',
+  /** the company's Pennylane suppliers could not be loaded: no extraction */
+  suppliersUnavailable: 'ticket.suppliers.unavailable',
   /** debug only: supplier and amounts are customers' financial data */
   extractionContent: 'ticket.extraction.content',
   validationRequested: 'ticket.validation.requested',
