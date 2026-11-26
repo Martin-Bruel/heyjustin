@@ -16,6 +16,8 @@ export const TICKET_LOG_EVENTS = {
   extractionContent: 'ticket.extraction.content',
   /** the "is typing…" indicator failed; the flow went on */
   processingNotShown: 'ticket.processing.not_shown',
+  /** the failure reply could not be sent; the ❌ reaction still shows it */
+  failureNotReported: 'ticket.failure.not_reported',
   validationRequested: 'ticket.validation.requested',
   /** a click on a recap that is not this user's, or already answered */
   clickIgnored: 'ticket.click.ignored',

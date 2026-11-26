@@ -10,6 +10,7 @@ import {
   EMOJI_BY_REACTION,
   formatAnsweredRecap,
   formatOneReceiptPerMessage,
+  formatProcessingFailure,
   formatUnsupportedFile,
   formatValidationRecap,
   validationButtons,
@@ -53,6 +54,16 @@ export class TicketNotifierService {
       },
       signal,
     );
+  }
+
+  /** Tells the user, as a reply to their message, why the receipt failed. */
+  async reportFailure(ticket: Ticket, reason: string): Promise<void> {
+    await this.messagingGateway.send({
+      channel: ticket.source.channel,
+      recipientId: await this.recipientOf(ticket),
+      text: formatProcessingFailure(reason),
+      replyToMessageId: ticket.source.messageId,
+    });
   }
 
   /** Sends the recap as a reply to the user's message, with validate/cancel buttons. */

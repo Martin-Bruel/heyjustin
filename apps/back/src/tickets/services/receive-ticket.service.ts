@@ -7,7 +7,6 @@ import { Ticket } from '../models/ticket.js';
 import type { TicketFile } from '../models/ticket-file.js';
 import { TicketRepository } from '../repositories/ticket.repository.js';
 import { ExtractTicketService } from './extract-ticket.service.js';
-import { TicketNotifierService } from './ticket-notifier.service.js';
 import { TICKET_LOG_EVENTS } from '../ticket-log-events.js';
 
 /** A receipt received on a messaging channel, already downloaded by the handler. */
@@ -31,7 +30,6 @@ export class ReceiveTicketService {
 
   constructor(
     private readonly ticketRepository: TicketRepository,
-    private readonly ticketNotifierService: TicketNotifierService,
     private readonly extractTicketService: ExtractTicketService,
   ) {}
 
@@ -66,30 +64,8 @@ export class ReceiveTicketService {
       sizeBytes: document.file.data.length,
     });
 
-    // the AI takes seconds: the user sees it working until the recap
-    const processing = new AbortController();
-    await this.showProcessing(ticket, processing.signal);
-    try {
-      await this.extractTicketService.extract(ticket);
-    } finally {
-      processing.abort();
-    }
+    await this.extractTicketService.extract(ticket);
 
     return ticket;
-  }
-
-  /** Best-effort: without the indicator, the recap still comes. */
-  private async showProcessing(
-    ticket: Ticket,
-    signal: AbortSignal,
-  ): Promise<void> {
-    try {
-      await this.ticketNotifierService.showProcessing(ticket, signal);
-    } catch (error) {
-      this.logger.warn('Processing indicator not shown', {
-        event: TICKET_LOG_EVENTS.processingNotShown,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
   }
 }

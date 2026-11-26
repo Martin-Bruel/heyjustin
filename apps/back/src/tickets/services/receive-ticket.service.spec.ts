@@ -122,7 +122,7 @@ function setup(
     notifier,
     reactions,
   );
-  const service = new ReceiveTicketService(tickets, notifier, extract);
+  const service = new ReceiveTicketService(tickets, extract);
   return { service, tickets: stored, discord, suppliersSeen };
 }
 
@@ -190,6 +190,9 @@ describe('ReceiveTicketService', () => {
     });
     expect(suppliersSeen).toEqual([]);
     expect(discord.reactions.map((r) => r.emoji)).toEqual(['❌']);
+    expect(discord.sent[0].text).toContain(
+      'Pennylane is not connected for this company',
+    );
   });
 
   it('fails without reading when Pennylane refuses the token', async () => {
@@ -221,8 +224,45 @@ describe('ReceiveTicketService', () => {
       extraction: null,
     });
     expect(discord.reactions.map((r) => r.emoji)).toEqual(['❌']);
-    expect(discord.sent).toEqual([]);
-    expect(discord.processing[0].stopped()).toBe(true);
+    // the reason as a reply: it also ends "is typing…" on Discord
+    expect(discord.sent).toEqual([
+      {
+        recipientId: 'discord-alice',
+        replyToMessageId: 'm1',
+        text: '❌ I could not process this receipt: Unreadable document. Please send it again.',
+      },
+    ]);
+  });
+
+  it('stops the processing indicator before telling the outcome', async () => {
+    const { service, discord } = setup(new Error('Unreadable document'));
+    const stoppedWhen: boolean[] = [];
+    const send = discord.send.bind(discord);
+    discord.send = async (message) => {
+      stoppedWhen.push(discord.processing[0].stopped());
+      await send(message);
+    };
+    const react = discord.react.bind(discord);
+    discord.react = async (update) => {
+      stoppedWhen.push(discord.processing[0].stopped());
+      await react(update);
+    };
+
+    await service.receive(alice, document);
+
+    expect(stoppedWhen).toEqual([true, true]);
+  });
+
+  it('still shows ❌ when the failure reply cannot be sent', async () => {
+    const { service, discord } = setup(new Error('Unreadable document'));
+    discord.send = async () => {
+      throw new Error('Discord down');
+    };
+
+    const ticket = await service.receive(alice, document);
+
+    expect(ticket!.status).toBe('FAILED');
+    expect(discord.reactions.map((r) => r.emoji)).toEqual(['❌']);
   });
 
   it('goes on when the processing indicator cannot be shown', async () => {

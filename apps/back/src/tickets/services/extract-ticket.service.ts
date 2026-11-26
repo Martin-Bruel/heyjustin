@@ -22,8 +22,8 @@ const SUPPLIERS_UNAVAILABLE = 'Could not load the Pennylane suppliers';
 /**
  * Reads the data of a RECEIVED ticket, attached to one of the company's
  * Pennylane suppliers, then asks the user to validate it (supplier
- * included). On failure, the ticket is marked FAILED and the user sees it
- * through the reaction.
+ * included). The user sees "is typing…" meanwhile. On failure, the ticket is
+ * marked FAILED and the user gets the reason as a reply, then ❌.
  */
 @Injectable()
 export class ExtractTicketService {
@@ -40,19 +40,56 @@ export class ExtractTicketService {
 
   async extract(ticket: Ticket): Promise<void> {
     const from = ticket.status;
-    const extraction = await this.runExtraction(ticket);
+    // the AI takes seconds: the user sees it working, until the outcome is
+    // known (Discord keeps showing it up to 10 s more, or until our message)
+    const processing = new AbortController();
+    await this.showProcessing(ticket, processing.signal);
+    let extraction: Extraction | null;
+    try {
+      extraction = await this.runExtraction(ticket);
+    } finally {
+      processing.abort();
+    }
+
+    if (extraction) ticket.recordExtraction(extraction);
+    await this.ticketRepository.save(ticket);
+    this.logStatusChange(from, ticket);
 
     if (extraction) {
-      ticket.recordExtraction(extraction);
-      await this.ticketRepository.save(ticket);
-      this.logStatusChange(from, ticket);
       await this.ticketNotifierService.requestValidation(ticket, extraction);
-    } else {
-      await this.ticketRepository.save(ticket);
-      this.logStatusChange(from, ticket);
+    } else if (ticket.state.status === 'FAILED') {
+      // a message ends "is typing…" at once, and says why
+      await this.reportFailure(ticket, ticket.state.reason);
     }
 
     await this.ticketReactionService.syncReaction(ticket);
+  }
+
+  /** Best-effort: without the indicator, the recap still comes. */
+  private async showProcessing(
+    ticket: Ticket,
+    signal: AbortSignal,
+  ): Promise<void> {
+    try {
+      await this.ticketNotifierService.showProcessing(ticket, signal);
+    } catch (error) {
+      this.logger.warn('Processing indicator not shown', {
+        event: TICKET_LOG_EVENTS.processingNotShown,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /** Best-effort: the ❌ reaction still shows the failure. */
+  private async reportFailure(ticket: Ticket, reason: string): Promise<void> {
+    try {
+      await this.ticketNotifierService.reportFailure(ticket, reason);
+    } catch (error) {
+      this.logger.warn('Failure message not sent', {
+        event: TICKET_LOG_EVENTS.failureNotReported,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /** Returns the extraction, or marks the ticket FAILED and returns null. */

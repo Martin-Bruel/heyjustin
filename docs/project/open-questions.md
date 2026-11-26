@@ -4,6 +4,14 @@ Settle these before building on them; turn a settled point into a decision recor
 
 ## To decide
 
+- **How the user follows a ticket: reactions, replies, edits, or a mix?**
+  Today: no reaction until the import, the recap edited with the outcome,
+  then 🕓 → ✅ / ⚠️ on the user's message; a failed reading is told by a
+  reply with its reason, plus ❌. To check against WhatsApp: a reply within
+  24 h of the user's message is free, anything later (the bank match comes
+  days later) needs a paid template, a reaction included (to verify); a sent
+  message cannot be edited. Options: keep reactions on Discord only; replies
+  during the flow, nothing per ticket afterwards (a periodic summary?).
 - **Does `MANUAL` count as a success?** The invoice is in Pennylane, only the
   bank matching is manual. Needed for statistics.
 - **Duplicates:** postponed. Detection criterion to choose (same company,
@@ -55,3 +63,29 @@ Settle these before building on them; turn a settled point into a decision recor
   restart is never resumed (the import is safe to run again, decision 013).
 - Ticket ids are UUID v4 (`randomUUID`), while Prisma defaults to v7.
 - Authentication, before any HTTP API.
+
+## Product (later)
+
+To validate with users before building.
+
+- **Pricing** (saas edition). AI cost per receipt with Large 4 at `low`:
+  ~0.003 to 0.005 €, ~0.01 € with 500 suppliers (the list is sent with each
+  receipt). Ideas: independent 5 €/month for 100 receipts (yearly payment
+  to absorb the fixed card fees); SMB 20 €/month capped at 2 500 is at a
+  loss at the cap with many suppliers: lower the cap (1 000), raise the
+  price, or price per employee. Sending the supplier list before the file
+  would let Mistral cache it (cached input 10× cheaper, conditions to check).
+- **Accounting firms**, likely the main customer: many client files (one
+  company and one Pennylane token each, check whether Pennylane offers a
+  firm-level access), invoices received in batches, no chatting with a bot
+  per invoice. Priced per client file and per month, with volume tiers.
+  Pennylane already has a collection email address and OCR: our value must
+  be less review work. To ask 3 to 5 firms: how they receive invoices, what
+  costs them time in Pennylane, what they would pay per file.
+- **Batch inputs**, useful to everyone: an email address per company
+  (inbound email service, one ticket per attachment; "one receipt per
+  message" stays a messaging rule) and a web upload of several files.
+- **Review by exception**: "safe" invoices go to Pennylane without a click
+  (supplier matched by VAT number or SIREN, consistent amounts, known VAT
+  rate), the others wait in a list validated in bulk. Needs a web app with
+  authentication and an automatic validation in the lifecycle.

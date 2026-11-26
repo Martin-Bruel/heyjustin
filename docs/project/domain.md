@@ -68,7 +68,8 @@ No reaction before the import: the conversation shows the progress
    to an existing supplier or marked as new
    ([decision 012](decisions/012-supplier-matching.md)): success →
    `AWAITING_VALIDATION` and the recap is sent as a reply; failure or
-   rejection → `FAILED` with the reason, ❌ is shown.
+   rejection → `FAILED` with the reason, told as a reply (which also ends
+   "is typing…"), then ❌ is shown.
 
 Rejected for now: credit notes and refunds, several VAT rates on one
 receipt, several receipts in one document, missing or unreadable fields.

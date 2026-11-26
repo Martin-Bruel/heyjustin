@@ -59,6 +59,11 @@ export function formatOneReceiptPerMessage(receiptCount: number): string {
   return `This message contains ${receiptCount} receipts. Please send them one per message so I can process them.`;
 }
 
+/** The reason is one of our fixed failure reasons: no customer data. */
+export function formatProcessingFailure(reason: string): string {
+  return `❌ I could not process this receipt: ${reason}. Please send it again.`;
+}
+
 export function formatUnsupportedFile(): string {
   return 'I cannot import this file type into Pennylane. Please send the receipt as a photo (JPEG or PNG) or a PDF.';
 }
