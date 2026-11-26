@@ -20,13 +20,14 @@ export function createModelFactory(config: AiConfig): ModelFactory {
   switch (config.provider) {
     case 'mistral': {
       const mistral = createMistral({ apiKey: config.apiKey });
+      const { reasoningEffort } = config;
       return (modelId) => ({
         model: mistral(modelId),
-        // Large 4 reasons before answering, and the reasoning counts in
-        // maxOutputTokens: at its default effort it used the whole budget and
-        // cut the JSON. Reading a document needs little of it. Models that do
-        // not accept `low` ignore it with an SDK warning.
-        providerOptions: { mistral: { reasoningEffort: 'low' } },
+        // set by the saas edition only; otherwise the model's default
+        // (decision 015)
+        ...(reasoningEffort
+          ? { providerOptions: { mistral: { reasoningEffort } } }
+          : {}),
       });
     }
     case 'openai-compatible': {

@@ -101,7 +101,8 @@ export class DocumentReaderService {
           topP: 1,
           // the answer is ~200 tokens; the rest is room for the model's reasoning,
           // which counts here too (finishReason `length` when it runs out)
-          maxOutputTokens: 4_000,
+          // (Large 4: ~900 at low, ~2 400 at its default effort)
+          maxOutputTokens: 10_000,
         });
       // debug only: the answer holds the document's data
       this.logger.debug('AI document answer', {

@@ -36,15 +36,23 @@ local model.
   Prompts and schemas never go into `ai`: each new AI use would add its
   business to a technical module.
 - **Provider by config**: `AI_PROVIDER` (`mistral` | `openai-compatible`),
-  `AI_API_KEY`, `AI_BASE_URL`, `AI_EXTRACTION_MODEL`. Every supported SDK is
+  `AI_API_KEY`, `AI_BASE_URL`, `AI_EXTRACTION_MODEL`. Since
+  [015](015-editions.md), only in the self-hosted edition: the saas fixes
+  Mistral Large 4 at low reasoning. Every supported SDK is
   installed (small HTTP clients, like the messaging SDKs); one is used per
   install. Keys are passed explicitly, never read from the SDKs' own env
   variables. No AI gateway: receipts would go through one more third party.
 - **Default: Mistral Large 4** (`mistral-large-4`, pinned, not `-latest`):
   multimodal, structured output, $0.7 / $2.1 per million tokens (Nov 2026).
   It reasons before answering and the reasoning counts in `maxOutputTokens`:
-  set to `reasoningEffort: 'low'` (in `ai-providers.ts`) with 4 000 output
-  tokens, after the default effort used 1 000 tokens and cut the JSON.
+  set to `reasoningEffort: 'low'`, the least Large 4 accepts (`none` is
+  refused; Small 4 accepts only `none` or `high`). Since
+  [015](015-editions.md): `low` in the saas edition only, the model's
+  default when self-hosted, with 10 000 output tokens. No setting per model,
+  to keep the config simple. At `low`, Large 4 still spends 700 to 1 400 output
+  tokens on any receipt, a clean PDF as much as a blurry photo: ~0.003 to
+  0.005 $ per receipt. A prompt line asking to think only about hard fields
+  was tried and removed: no effect on a clean PDF (833 → 855).
   Medium 3.5 is deprecated; Mistral OCR is a separate API outside the AI SDK,
   kept as a fallback idea if reading quality is poor.
 - **Privacy**: the model's answer is logged at debug only (it holds the

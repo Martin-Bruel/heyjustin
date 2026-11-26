@@ -57,15 +57,23 @@ describe('validatedConfig', () => {
 });
 
 describe('appConfig', () => {
-  it('defaults to development on port 3000', () => {
-    const config = withEnv({ NODE_ENV: undefined, PORT: undefined }, () =>
-      appConfig(),
+  it('defaults to development on port 3000, self-hosted', () => {
+    const config = withEnv(
+      { NODE_ENV: undefined, PORT: undefined, HEYJUSTIN_EDITION: undefined },
+      () => appConfig(),
     );
     expect(config).toEqual({
+      edition: 'self-hosted',
       nodeEnv: 'development',
       isProduction: false,
       port: 3000,
     });
+  });
+
+  it('refuses an unknown edition', () => {
+    expect(() =>
+      withEnv({ HEYJUSTIN_EDITION: 'cloud' }, () => appConfig()),
+    ).toThrow(/HEYJUSTIN_EDITION/);
   });
 
   it('reads production and a numeric port', () => {

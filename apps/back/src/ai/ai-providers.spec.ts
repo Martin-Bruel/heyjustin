@@ -1,16 +1,28 @@
 import { createModelFactory } from './ai-providers.js';
 
 describe('createModelFactory', () => {
-  it('keeps the reasoning of Mistral models low', () => {
+  it('sends the reasoning effort the saas edition fixes', () => {
     const definition = createModelFactory({
       provider: 'mistral',
       apiKey: 'a-key',
       extractionModel: 'mistral-large-4',
+      reasoningEffort: 'low',
     })('mistral-large-4');
 
     expect(definition.providerOptions).toEqual({
       mistral: { reasoningEffort: 'low' },
     });
+  });
+
+  it('leaves a self-hosted Mistral model at its default reasoning', () => {
+    const definition = createModelFactory({
+      provider: 'mistral',
+      apiKey: 'a-key',
+      extractionModel: 'mistral-small-2603',
+      reasoningEffort: null,
+    })('mistral-small-2603');
+
+    expect(definition.providerOptions).toBeUndefined();
   });
 
   it('sets nothing provider-specific for an OpenAI-compatible server', () => {

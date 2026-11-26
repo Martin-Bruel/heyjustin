@@ -22,6 +22,10 @@ Settle these before building on them; turn a settled point into a decision recor
 - Extraction accuracy is not measured: no evaluation set of real receipts
   yet. Needed before changing the model, the provider or the prompt.
 - AI cost is not reported: no `pricing` on the models (tokens are logged).
+- Subscriptions will have to cap the AI tokens per company (or the number
+  of receipts): ~0.003 to 0.005 $ per receipt with Large 4 at `low`,
+  whatever the document, more with a long supplier list. A fixed cost per
+  page (Mistral Document AI) is an option if it becomes an issue.
 - Several VAT rates and credit notes are rejected (decision 010).
 - With `openai-compatible`, PDF support depends on the server: Mistral reads
   images and PDF, many local servers only images.

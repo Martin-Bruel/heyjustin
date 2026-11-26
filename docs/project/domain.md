@@ -123,8 +123,13 @@ exposes its public API in `index.ts`.
 Every variable is listed and explained in
 [`apps/back/.env.example`](../../apps/back/.env.example); copy it to `.env`.
 Each module validates its own variables at startup. Messaging channels are
-loaded only when configured (at least one is required). The AI provider
-and model are chosen with `AI_PROVIDER` and `AI_EXTRACTION_MODEL`.
-Pennylane tokens are per company, stored encrypted with
-`SECRETS_ENCRYPTION_KEY`; `PENNYLANE_API_TOKEN` creates a default company
-with its token at startup ([decision 011](decisions/011-pennylane-api-token.md)).
+loaded only when configured (at least one is required).
+
+`HEYJUSTIN_EDITION` picks the edition ([decision 015](decisions/015-editions.md)):
+`self-hosted` (default, the open-source app: AI provider and model chosen
+with `AI_PROVIDER` and `AI_EXTRACTION_MODEL`, at the model's default
+reasoning; `PENNYLANE_API_TOKEN` creates a default company,
+[decision 011](decisions/011-pennylane-api-token.md)) or `saas` (our
+service: Mistral Large 4 at low reasoning, fixed in code; those variables
+are refused). Pennylane tokens are per company, stored encrypted with
+`SECRETS_ENCRYPTION_KEY`.

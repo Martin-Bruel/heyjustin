@@ -18,7 +18,8 @@ serves several companies.
   `SECRETS_ENCRYPTION_KEY` (32 bytes, hex). The repository encrypts on write
   and decrypts on read; nobody else sees the stored form. Stored values are
   versioned (`v1.`) so the algorithm can change.
-- **A default company from the env** until there is an onboarding: when
+- **A default company from the env** until there is an onboarding
+  (self-hosted edition only since [015](015-editions.md)): when
   `PENNYLANE_API_TOKEN` is set, the company
   `00000000-0000-7000-8000-000000000001` ("Default") is created at startup
   with that token, or gets it (upsert on the fixed id; the env wins, a new

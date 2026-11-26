@@ -6,6 +6,7 @@ import { AI_MODELS } from './ai-models.js';
 import { AiModule } from './ai.module.js';
 
 const AI_VARIABLES = [
+  'HEYJUSTIN_EDITION',
   'AI_PROVIDER',
   'AI_API_KEY',
   'AI_BASE_URL',
@@ -42,16 +43,28 @@ function describeModel(models: AiModels, name: string) {
 }
 
 describe('AiModule', () => {
-  it('registers the extraction model of the configured provider', async () => {
+  it('registers the fixed model of the saas edition', async () => {
     const models = await compileWith({
-      AI_PROVIDER: 'mistral',
+      HEYJUSTIN_EDITION: 'saas',
       AI_API_KEY: 'a-key',
-      AI_EXTRACTION_MODEL: 'mistral-large-4',
     });
 
     expect(describeModel(models, AI_MODELS.extraction)).toEqual({
       provider: 'mistral.chat',
       modelId: 'mistral-large-4',
+    });
+  });
+
+  it('registers the configured model when self-hosted (the default)', async () => {
+    const models = await compileWith({
+      AI_PROVIDER: 'mistral',
+      AI_API_KEY: 'a-key',
+      AI_EXTRACTION_MODEL: 'mistral-small-2603',
+    });
+
+    expect(describeModel(models, AI_MODELS.extraction)).toEqual({
+      provider: 'mistral.chat',
+      modelId: 'mistral-small-2603',
     });
   });
 
@@ -73,6 +86,25 @@ describe('AiModule', () => {
     [{ AI_PROVIDER: 'unknown', AI_EXTRACTION_MODEL: 'm' }, /AI_PROVIDER/],
     [{ AI_PROVIDER: 'mistral', AI_EXTRACTION_MODEL: 'm' }, /AI_API_KEY/],
     [{ AI_PROVIDER: 'mistral', AI_API_KEY: 'k' }, /AI_EXTRACTION_MODEL/],
+    [{ HEYJUSTIN_EDITION: 'cloud' }, /HEYJUSTIN_EDITION/],
+    [{ HEYJUSTIN_EDITION: 'saas' }, /AI_API_KEY/],
+    // the saas edition fixes the AI: refused, not ignored
+    [
+      { HEYJUSTIN_EDITION: 'saas', AI_API_KEY: 'k', AI_PROVIDER: 'mistral' },
+      /AI_PROVIDER: not available in the saas edition/,
+    ],
+    [
+      {
+        HEYJUSTIN_EDITION: 'saas',
+        AI_API_KEY: 'k',
+        AI_EXTRACTION_MODEL: 'mistral-small-2603',
+      },
+      /AI_EXTRACTION_MODEL: not available in the saas edition/,
+    ],
+    [
+      { AI_PROVIDER: 'openai-compatible', AI_BASE_URL: 'http://localhost' },
+      /AI_EXTRACTION_MODEL/,
+    ],
     [
       { AI_PROVIDER: 'openai-compatible', AI_EXTRACTION_MODEL: 'm' },
       /AI_BASE_URL/,
