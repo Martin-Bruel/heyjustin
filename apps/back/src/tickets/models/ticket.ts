@@ -86,6 +86,18 @@ export class Ticket {
     this._state = { status: 'DUPLICATE' };
   }
 
+  /** The user validated the recap: the Pennylane import starts. */
+  startImport() {
+    const { extraction } = this.assertTransitionAllowed('startImport');
+    this._state = { status: 'IMPORTING', extraction, supplierId: null };
+  }
+
+  /** The Pennylane supplier of the invoice exists (matched, or just created). */
+  recordImportSupplier(supplierId: string) {
+    const { extraction } = this.assertTransitionAllowed('recordImportSupplier');
+    this._state = { status: 'IMPORTING', extraction, supplierId };
+  }
+
   /** The invoice has been created in Pennylane, waiting for its bank transaction. */
   recordPennylaneImport(pennylane: PennylaneInfo) {
     const { extraction } = this.assertTransitionAllowed(

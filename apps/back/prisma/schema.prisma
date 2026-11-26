@@ -41,6 +41,7 @@ enum Channel {
 enum TicketStatus {
   RECEIVED // photo downloaded, extraction in progress
   AWAITING_VALIDATION // recap sent
+  IMPORTING // validated, Pennylane import in progress
   PENDING_MATCH // imported, transaction not there yet
   MATCHED
   MANUAL // in Pennylane, to be matched by hand
@@ -83,7 +84,7 @@ model Ticket {
   currency                   String    @default("EUR")
 
   // Pennylane
-  pennylaneSupplierId    String?
+  pennylaneSupplierId    String? // set while IMPORTING once the supplier exists, so a retry does not create it again
   pennylaneInvoiceId     String?
   pennylaneTransactionId String?
 

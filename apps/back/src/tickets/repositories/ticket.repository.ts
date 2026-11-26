@@ -54,6 +54,22 @@ export class TicketRepository {
     await this.prismaService.ticket.update({ where: { id }, data });
   }
 
+  /**
+   * Saves the ticket only if it is still `expected` in the database: false
+   * when another flow changed it first (e.g. a double click on Validate).
+   */
+  async saveIfStatus(
+    ticket: Ticket,
+    expected: Ticket['status'],
+  ): Promise<boolean> {
+    const { id, ...data } = toTicketRow(ticket);
+    const { count } = await this.prismaService.ticket.updateMany({
+      where: { id, status: expected },
+      data,
+    });
+    return count === 1;
+  }
+
   async findFile(ticketId: string): Promise<TicketFile | null> {
     const row = await this.prismaService.ticketFile.findUnique({
       where: { ticketId },

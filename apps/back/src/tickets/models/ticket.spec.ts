@@ -35,6 +35,8 @@ describe('Ticket lifecycle', () => {
   it('goes through the happy path and keeps data along the way', () => {
     const ticket = newTicket();
     ticket.recordExtraction(extraction);
+    ticket.startImport();
+    ticket.recordImportSupplier('sup_1');
     ticket.recordPennylaneImport(pennylane);
     ticket.matchTransaction('tx_1');
 
@@ -67,6 +69,38 @@ describe('Ticket lifecycle', () => {
     });
   });
 
+  it('keeps the supplier while importing, and can fail then', () => {
+    const ticket = newTicket();
+    ticket.recordExtraction(extraction);
+    ticket.startImport();
+    expect(ticket.state).toEqual({
+      status: 'IMPORTING',
+      extraction,
+      supplierId: null,
+    });
+
+    ticket.recordImportSupplier('sup_1');
+    expect(ticket.state).toMatchObject({ supplierId: 'sup_1' });
+
+    ticket.fail('Pennylane unavailable');
+    expect(ticket.state).toEqual({
+      status: 'FAILED',
+      reason: 'Pennylane unavailable',
+      extraction,
+    });
+  });
+
+  it('is imported only after validation, and cancelled only before', () => {
+    const ticket = newTicket();
+    ticket.recordExtraction(extraction);
+    expect(() => ticket.recordPennylaneImport(pennylane)).toThrow(
+      InvalidTicketTransitionError,
+    );
+    ticket.startImport();
+    expect(() => ticket.cancel()).toThrow(InvalidTicketTransitionError);
+    expect(() => ticket.startImport()).toThrow(InvalidTicketTransitionError);
+  });
+
   it('rejects a transition from a status not listed in TICKET_TRANSITIONS', () => {
     const ticket = newTicket();
     expect(() => ticket.matchTransaction('tx_1')).toThrow(
@@ -84,18 +118,26 @@ describe('Ticket lifecycle', () => {
 });
 
 describe('Ticket reaction', () => {
-  it('shows PENDING as soon as the ticket is received', () => {
+  it('shows no reaction until the import', () => {
     const ticket = newTicket();
-    expect(ticket.expectedReaction).toBe('PENDING');
-    expect(ticket.isReactionOutdated).toBe(true);
+    expect(ticket.expectedReaction).toBeNull();
+    expect(ticket.isReactionOutdated).toBe(false);
+
+    ticket.recordExtraction(extraction);
+    ticket.startImport();
+    expect(ticket.expectedReaction).toBeNull();
   });
 
   it('is outdated after a transition until the reaction is displayed', () => {
     const ticket = newTicket();
-    ticket.markReactionAsDisplayed('PENDING');
     ticket.recordExtraction(extraction);
+    ticket.startImport();
     ticket.recordPennylaneImport(pennylane);
-    expect(ticket.isReactionOutdated).toBe(false); // still PENDING
+    expect(ticket.expectedReaction).toBe('PENDING');
+    expect(ticket.isReactionOutdated).toBe(true);
+
+    ticket.markReactionAsDisplayed('PENDING');
+    expect(ticket.isReactionOutdated).toBe(false);
 
     ticket.matchTransaction('tx_1');
     expect(ticket.expectedReaction).toBe('MATCHED');

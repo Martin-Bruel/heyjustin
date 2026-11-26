@@ -31,6 +31,13 @@ export type DiscordDirectMessage = {
   attachments: DiscordAttachment[];
 };
 
+export type DiscordButtonClick = {
+  userId: string;
+  /** the bot's message carrying the button */
+  messageId: string;
+  customId: string;
+};
+
 export type DiscordButton = {
   id: string;
   label: string;
@@ -43,6 +50,11 @@ const BUTTON_STYLES: Record<DiscordButton['style'], ButtonStyle> = {
   success: ButtonStyle.Success,
   danger: ButtonStyle.Danger,
 };
+
+/** Discord shows "is typing…" for 10 s: sent again before it expires. */
+const TYPING_REFRESH_MS = 8_000;
+/** Longest typing shown, in case `signal` is never aborted. */
+const TYPING_MAX_MS = 120_000;
 
 /**
  * Discord bot connection: thin wrapper over discord.js, used by DiscordStrategy.
@@ -86,6 +98,76 @@ export class DiscordClient
     this.client.on(Events.MessageCreate, (message) => {
       if (message.author.bot || message.inGuild()) return;
       void handler(toDirectMessage(message));
+    });
+  }
+
+  /**
+   * Calls `handler` for every click on a button of the bot's DMs. Discord
+   * wants an answer within 3 s: the click is acknowledged first (the message
+   * is then edited by `editDirectMessage`), the handler may take longer.
+   */
+  onButtonClick(handler: (click: DiscordButtonClick) => Promise<void>): void {
+    this.client.on(Events.InteractionCreate, (interaction) => {
+      if (!interaction.isButton() || interaction.inGuild()) return;
+      const click: DiscordButtonClick = {
+        userId: interaction.user.id,
+        messageId: interaction.message.id,
+        customId: interaction.customId,
+      };
+      void interaction
+        .deferUpdate()
+        .catch((error: unknown) =>
+          this.logger.warn('Discord click not acknowledged', {
+            event: MESSAGING_LOG_EVENTS.channelError,
+            channel: 'DISCORD',
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        )
+        .then(() => handler(click));
+    });
+  }
+
+  /**
+   * Shows "is typing…" in the user's DM until `signal` aborts (Discord also
+   * removes it when the bot sends a message). Resolves once first shown;
+   * later refreshes are best-effort.
+   */
+  async keepTyping(userId: string, signal: AbortSignal): Promise<void> {
+    if (signal.aborted) return;
+    const user = await this.client.users.fetch(userId);
+    const dm = await user.createDM();
+    await dm.sendTyping();
+    const refresh = setInterval(() => {
+      dm.sendTyping().catch((error: unknown) =>
+        this.logger.debug('Discord typing not refreshed', {
+          event: MESSAGING_LOG_EVENTS.channelError,
+          channel: 'DISCORD',
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }, TYPING_REFRESH_MS);
+    const stop = () => {
+      clearInterval(refresh);
+      clearTimeout(timeout);
+    };
+    const timeout = setTimeout(stop, TYPING_MAX_MS);
+    signal.addEventListener('abort', stop, { once: true });
+  }
+
+  /** Replaces the text and buttons of one of the bot's DMs. */
+  async editDirectMessage(params: {
+    userId: string;
+    messageId: string;
+    content: string;
+    buttons?: DiscordButton[];
+  }): Promise<void> {
+    const message = await this.fetchDirectMessage(
+      params.userId,
+      params.messageId,
+    );
+    await message.edit({
+      content: params.content,
+      components: params.buttons?.length ? [toButtonRow(params.buttons)] : [],
     });
   }
 

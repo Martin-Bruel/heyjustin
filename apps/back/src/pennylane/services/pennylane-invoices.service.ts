@@ -3,6 +3,7 @@ import { PennylaneApiError } from '../errors/pennylane-api.error.js';
 import { PennylaneClient } from '../pennylane.client.js';
 import type {
   PennylaneFileAttachmentBody,
+  PennylanePage,
   PennylaneSupplierInvoiceBody,
 } from '../pennylane.types.js';
 import type { PennylaneVatRate } from '../pennylane-vat-rate.js';
@@ -104,6 +105,35 @@ export class PennylaneInvoicesService {
         retryOnConflict: true,
       });
     return imported.id;
+  }
+
+  /**
+   * The supplier invoice imported with this `external_reference`, if any.
+   * Pennylane refuses a second import with the same one (422 "External
+   * reference has already been taken"): after a timeout or a crash, this
+   * finds the invoice the first attempt created.
+   */
+  async findByExternalReference(
+    token: string,
+    externalReference: string,
+  ): Promise<number | null> {
+    const page = await this.pennylaneClient.request<
+      PennylanePage<PennylaneSupplierInvoiceBody>
+    >(token, {
+      method: 'GET',
+      path: '/supplier_invoices',
+      query: {
+        filter: [
+          {
+            field: 'external_reference',
+            operator: 'eq',
+            value: externalReference,
+          },
+        ],
+        limit: 1,
+      },
+    });
+    return page.items[0]?.id ?? null;
   }
 }
 

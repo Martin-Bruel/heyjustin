@@ -1,6 +1,7 @@
 import type { MessageButton } from '../../messaging/index.js';
 import type { Extraction } from '../../receipts/index.js';
 import type { Reaction } from '../models/reaction.js';
+import type { TicketState } from '../models/ticket-state.js';
 
 /**
  * How tickets show up in messages, the same on every channel.
@@ -56,6 +57,38 @@ export function validationButtons(ticketId: string): MessageButton[] {
 
 export function formatOneReceiptPerMessage(receiptCount: number): string {
   return `This message contains ${receiptCount} receipts. Please send them one per message so I can process them.`;
+}
+
+export function formatUnsupportedFile(): string {
+  return 'I cannot import this file type into Pennylane. Please send the receipt as a photo (JPEG or PNG) or a PDF.';
+}
+
+/**
+ * The recap once answered: the same text, followed by what became of the
+ * ticket (it has no buttons any more). `null` while it awaits an answer.
+ */
+export function formatAnsweredRecap(state: TicketState): string | null {
+  const outcome = recapOutcome(state);
+  return outcome && 'extraction' in state && state.extraction
+    ? `${formatValidationRecap(state.extraction)}\n\n${outcome}`
+    : null;
+}
+
+function recapOutcome(state: TicketState): string | null {
+  switch (state.status) {
+    case 'IMPORTING':
+      return '⏳ Importing into Pennylane…';
+    case 'PENDING_MATCH':
+    case 'MATCHED':
+    case 'MANUAL':
+      return '📥 Imported into Pennylane.';
+    case 'CANCELLED':
+      return '🚫 Cancelled.';
+    case 'FAILED':
+      return `❌ Not imported: ${state.reason}. Please send the receipt again.`;
+    default:
+      return null;
+  }
 }
 
 export function formatValidationRecap(extraction: Extraction): string {

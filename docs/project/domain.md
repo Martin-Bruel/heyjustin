@@ -27,16 +27,17 @@ User-facing texts are in English, with day-first dates (en-GB format).
 ## Ticket lifecycle
 
 ```
-RECEIVED ──recordExtraction──▶ AWAITING_VALIDATION ──recordPennylaneImport──▶ PENDING_MATCH
-  │                               │                                             │
-  ├──markAsDuplicate──▶ DUPLICATE  ├──cancel──▶ CANCELLED                        ├──matchTransaction──▶ MATCHED
-  └──fail──▶ FAILED ◀─────────────┘ (fail)                                      └──requireManualMatching──▶ MANUAL
+RECEIVED ──recordExtraction──▶ AWAITING_VALIDATION ──startImport──▶ IMPORTING ──recordPennylaneImport──▶ PENDING_MATCH
+  │                               │                                  │                                     │
+  ├──markAsDuplicate──▶ DUPLICATE  ├──cancel──▶ CANCELLED             │ recordImportSupplier (stays)        ├──matchTransaction──▶ MATCHED
+  └──fail──▶ FAILED ◀─────────────┴──────────────────────────────────┘ (fail)                              └──requireManualMatching──▶ MANUAL
 ```
 
 | Status | Meaning | Data | Reaction |
 |---|---|---|---|
-| `RECEIVED` | File stored, extraction in progress | — | 🕓 |
-| `AWAITING_VALIDATION` | Recap sent, waiting for the user | extraction | 🕓 |
+| `RECEIVED` | File stored, extraction in progress | — | — ("is typing…") |
+| `AWAITING_VALIDATION` | Recap sent, waiting for the user | extraction | — (the recap) |
+| `IMPORTING` | Validated, Pennylane import in progress | extraction, Pennylane supplier id once it exists | — (the recap) |
 | `PENDING_MATCH` | Imported in Pennylane, bank transaction not there yet | extraction, Pennylane supplier + invoice ids | 🕓 |
 | `MATCHED` | Matched with a bank transaction (final) | + transaction id | ✅ |
 | `MANUAL` | No transaction found, to match by hand in Pennylane (final) | extraction, Pennylane ids | ⚠️ |
@@ -46,6 +47,8 @@ RECEIVED ──recordExtraction──▶ AWAITING_VALIDATION ──recordPennyla
 
 Source of truth in code: `tickets/models/ticket-state.ts` (data per status),
 `ticket-transitions.ts` (allowed transitions), `reaction.ts` (reaction per status).
+No reaction before the import: the conversation shows the progress
+([decision 014](decisions/014-no-reaction-before-import.md)).
 
 ## Receiving a receipt (implemented)
 
@@ -54,7 +57,10 @@ Source of truth in code: `tickets/models/ticket-state.ts` (data per status),
    are dropped there.
 3. `tickets` keeps messages with an image or PDF. Several receipts in one
    message: none is processed, the user is asked to send one per message.
-4. The file is downloaded, the ticket is created `RECEIVED` with its file, 🕓 is shown.
+   A format Pennylane refuses (HEIC, WebP…): the user is asked for a JPEG,
+   PNG or PDF.
+4. The file is downloaded, the ticket is created `RECEIVED` with its file;
+   the user sees "is typing…" until the recap (best-effort).
 5. The company's Pennylane suppliers are listed (no token or Pennylane
    down → `FAILED`, ❌).
 6. Extraction, one AI call with the file and the suppliers
@@ -69,6 +75,23 @@ receipt, several receipts in one document, missing or unreadable fields.
 
 A message already turned into a ticket (same source message) is ignored.
 
+## Validating a receipt (implemented)
+
+[Decision 013](decisions/013-pennylane-import.md).
+
+1. The user clicks *Validate* or *Cancel* on the recap. `messaging`
+   acknowledges the click and normalizes it, `users` identifies the sender.
+2. `tickets` ignores a click on another user's ticket, or on a ticket no
+   longer `AWAITING_VALIDATION` (the new status is saved only if it still is:
+   a double click imports once).
+3. *Cancel* → `CANCELLED`, 🚫, the recap says so.
+4. *Validate* → `IMPORTING`, the recap loses its buttons ("Importing…"), then:
+   the supplier is created in Pennylane if new (its id saved at once), the
+   file is uploaded, the supplier invoice is imported with the ticket id as
+   `external_reference` (a non-French or missing VAT rate: imported as
+   incomplete). Success → `PENDING_MATCH`, the recap says "Imported", 🕓 is shown;
+   failure → `FAILED` with the reason, ❌, the recap asks to send it again.
+
 ## Modules
 
 ```
@@ -76,7 +99,7 @@ src/
 ├── messaging/   # generic transport: gateway + one strategy per app (discord/). Owns Channel.
 ├── users/       # users and their channel; identifies senders (UserMessagesService)
 ├── companies/   # companies and their secrets (Pennylane token, encrypted)
-├── tickets/     # the ticket lifecycle, from reception to validation
+├── tickets/     # the ticket lifecycle, from reception to the Pennylane import
 ├── receipts/    # what a receipt is and how it is read: schema, prompt, rules. Owns Extraction.
 ├── ai/          # language models (@nestjs/ai): provider by config, generic document reading, no business
 ├── pennylane/   # Pennylane API v2 client: suppliers, files, invoices; token passed per call, no business

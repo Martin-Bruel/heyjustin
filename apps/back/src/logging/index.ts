@@ -9,5 +9,6 @@ export {
   type FlowContext,
   type FlowEnrichment,
   type LogContext,
+  type ClickFlow,
   type MessageFlow,
 } from './log-context.js';

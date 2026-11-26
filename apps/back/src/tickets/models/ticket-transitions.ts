@@ -8,19 +8,21 @@ import type { TicketStateOf, TicketStatus } from './ticket-state.js';
  * here: the matching `Ticket` method then receives the wider state type and
  * TypeScript points at what it must now handle.
  *
- *   RECEIVED ──recordExtraction──▶ AWAITING_VALIDATION ──recordPennylaneImport──▶ PENDING_MATCH
- *     │                               │                                             │
- *     ├──markAsDuplicate──▶ DUPLICATE  ├──cancel──▶ CANCELLED                         ├──matchTransaction──▶ MATCHED
- *     └──fail──▶ FAILED ◀──────────────┘ (fail)                                       └──requireManualMatching──▶ MANUAL
+ *   RECEIVED ──recordExtraction──▶ AWAITING_VALIDATION ──startImport──▶ IMPORTING ──recordPennylaneImport──▶ PENDING_MATCH
+ *     │                               │                                   │                                   │
+ *     ├──markAsDuplicate──▶ DUPLICATE  ├──cancel──▶ CANCELLED              │ recordImportSupplier (stays)      ├──matchTransaction──▶ MATCHED
+ *     └──fail──▶ FAILED ◀──────────────┴──────────────────────────────────┘ (fail)                            └──requireManualMatching──▶ MANUAL
  */
 export const TICKET_TRANSITIONS = {
   recordExtraction: ['RECEIVED'],
   markAsDuplicate: ['RECEIVED'],
-  recordPennylaneImport: ['AWAITING_VALIDATION'],
+  startImport: ['AWAITING_VALIDATION'],
+  recordImportSupplier: ['IMPORTING'],
+  recordPennylaneImport: ['IMPORTING'],
   cancel: ['AWAITING_VALIDATION'],
   matchTransaction: ['PENDING_MATCH'],
   requireManualMatching: ['PENDING_MATCH'],
-  fail: ['RECEIVED', 'AWAITING_VALIDATION'],
+  fail: ['RECEIVED', 'AWAITING_VALIDATION', 'IMPORTING'],
 } as const satisfies Record<string, readonly TicketStatus[]>;
 
 export type TicketTransition = keyof typeof TICKET_TRANSITIONS;

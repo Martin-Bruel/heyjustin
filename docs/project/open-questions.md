@@ -11,8 +11,9 @@ Settle these before building on them; turn a settled point into a decision recor
   to the original ticket.
 - **Files of final tickets:** the schema says files are deleted once a
   ticket is final; nothing does it yet.
-- **Reaction failure:** a failed reaction stops the flow before extraction.
-  Should reactions be best-effort (logged, retried later) instead?
+- **Reaction failure:** reactions are sent at the end of a step only
+  (decision 014); a failed one leaves the ticket saved with an outdated
+  `displayedReaction`, never retried. A job resyncing them?
 - **Recap failure:** if sending the recap fails, the ticket stays
   `AWAITING_VALIDATION` without a recap. Retry strategy to define.
 
@@ -24,20 +25,29 @@ Settle these before building on them; turn a settled point into a decision recor
 - Several VAT rates and credit notes are rejected (decision 010).
 - With `openai-compatible`, PDF support depends on the server: Mistral reads
   images and PDF, many local servers only images.
-- Scenario 2: handling the *Validate* / *Cancel* clicks
-  (`parseValidationButtonId` is ready), then the Pennylane import
-  (the `pennylane` module is ready) and the matching cron.
-- Pennylane, unverified against the real API: `import_as_incomplete` with
-  `vat_rate: mixed` for a non-French rate; whether a duplicate
-  `external_reference` is refused.
+- The matching cron: follow `PENDING_MATCH` tickets until their bank
+  transaction (`MATCHED`), or `MANUAL` after a delay. The user is done once
+  they validate: a card payment reaches Pennylane days later (bank, then
+  Pennylane's bank sync). Delay to choose: with a deferred debit card the
+  transaction may appear only at the end of the month, so 30 days may be too
+  short (45? per company?).
+- A failed import is not retried: the user sends the receipt again (and the
+  AI reads it again).
 - Supplier matching accuracy is not measured (only `supplierMatched` is
   logged): to check on real receipts, with the evaluation set.
-- HEIC and WebP receipts: read by the AI, refused by Pennylane. Convert them
-  before the import, or refuse them at reception?
+- Enrich new suppliers (improvement): Pennylane's web app finds a company
+  in its directory and fills its identifiers (easyJet: VAT number…), its
+  API v2 does not. Ours are created with the name and the identifiers read
+  on the receipt only. Options: the API Recherche d'entreprises
+  (recherche-entreprises.api.gouv.fr: free, French companies only, by name →
+  SIREN/SIRET), keeping only unambiguous results (one match, same name or
+  postcode); or check whether Pennylane enriches a supplier created with a
+  `reg_no`.
 - An expired Pennylane token (401): how the company is told.
 - WhatsApp strategy (webhook controller, signature guard, `rawBody: true`).
 - User onboarding: users are inserted by hand today.
 - Channel selection per install (self-hosting).
-- Stuck tickets recovery: a ticket left `RECEIVED` after a restart is never resumed.
+- Stuck tickets recovery: a ticket left `RECEIVED` or `IMPORTING` after a
+  restart is never resumed (the import is safe to run again, decision 013).
 - Ticket ids are UUID v4 (`randomUUID`), while Prisma defaults to v7.
 - Authentication, before any HTTP API.

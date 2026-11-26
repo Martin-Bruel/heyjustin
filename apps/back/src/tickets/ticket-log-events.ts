@@ -14,6 +14,16 @@ export const TICKET_LOG_EVENTS = {
   suppliersUnavailable: 'ticket.suppliers.unavailable',
   /** debug only: supplier and amounts are customers' financial data */
   extractionContent: 'ticket.extraction.content',
+  /** the "is typing…" indicator failed; the flow went on */
+  processingNotShown: 'ticket.processing.not_shown',
   validationRequested: 'ticket.validation.requested',
+  /** a click on a recap that is not this user's, or already answered */
+  clickIgnored: 'ticket.click.ignored',
+  importSucceeded: 'ticket.import.succeeded',
+  importFailed: 'ticket.import.failed',
+  /** the invoice was already in Pennylane (a previous attempt): reused */
+  importRecovered: 'ticket.import.recovered',
+  /** the recap could not be rewritten; the ticket went on */
+  recapUpdateFailed: 'ticket.recap.update_failed',
   reactionUpdated: 'ticket.reaction.updated',
 } as const;

@@ -50,6 +50,20 @@ await Test.createTestingModule({
 }).compile(); // resolves DI without running lifecycle hooks (no connection)
 ```
 
+## End-to-end tests
+
+Against real external services (e.g. the Pennylane sandbox), in `test/` at
+the root of the app, named `*.e2e-spec.ts` (the NestJS convention):
+`npm run test:e2e` (`vitest.config.e2e.ts`, which loads `.env`).
+
+- Build the real module with `Test.createTestingModule({ imports: [...] })`,
+  get its services with `moduleRef.get()`, `close()` it in `afterAll`.
+- Skip the suite when its token is not set (`describe.skipIf`): other e2e
+  suites must still run.
+- Sandbox tokens only, never production: these tests write. Name what they
+  create after the run (`heyjustin-test-<timestamp>`) to recognize it.
+- Not in `vitest run src` nor the pre-commit hook: they need the network.
+
 ## Checks after each change
 
 Format, lint, type-check, tests: `prettier`, `oxlint`, `tsc --noEmit`, `vitest run`.

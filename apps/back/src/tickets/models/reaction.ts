@@ -9,9 +9,12 @@ export type Reaction =
  * Typed as an exhaustive record: adding a status without a reaction fails to compile.
  */
 const REACTION_BY_STATUS = {
-  RECEIVED: 'PENDING', // immediate feedback: the document has been received
-  AWAITING_VALIDATION: 'PENDING', // the recap message asks for the next step
-  PENDING_MATCH: 'PENDING',
+  // until the import, the conversation shows the progress: the processing
+  // indicator while the AI reads, then the recap (decision 014)
+  RECEIVED: null,
+  AWAITING_VALIDATION: null,
+  IMPORTING: null,
+  PENDING_MATCH: 'PENDING', // in Pennylane, waiting for the bank transaction
   MATCHED: 'MATCHED',
   MANUAL: 'MANUAL',
   FAILED: 'FAILED',

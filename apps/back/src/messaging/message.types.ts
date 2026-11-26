@@ -34,6 +34,34 @@ export type OutgoingMessage = {
   buttons?: MessageButton[];
 };
 
+/** A click on a button of one of our messages, the same for every app. */
+export type ButtonClick = {
+  channel: Channel;
+  /** Who clicked (matches User.externalId). */
+  senderId: string;
+  /** Our message carrying the button. */
+  messageId: string;
+  /** The `MessageButton.id` clicked. */
+  buttonId: string;
+};
+
+/** Replaces the text and the buttons of one of our messages. */
+export type MessageEdit = {
+  channel: Channel;
+  recipientId: string;
+  messageId: string;
+  text: string;
+  /** The buttons kept; none removes them all. */
+  buttons?: MessageButton[];
+};
+
+/** The user's message we are processing, to show it on their app. */
+export type ProcessingTarget = {
+  channel: Channel;
+  recipientId: string;
+  messageId: string;
+};
+
 export type ReactionUpdate = {
   channel: Channel;
   recipientId: string;

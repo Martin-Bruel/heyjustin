@@ -1,10 +1,17 @@
 import { currentLogContext } from '../logging/index.js';
 import type { Channel } from './channel.js';
 import { ChannelNotEnabledError } from './channel-not-enabled.error.js';
-import { ChannelStrategy, type MessageHandler } from './channel-strategy.js';
+import {
+  ChannelStrategy,
+  type ClickHandler,
+  type MessageHandler,
+} from './channel-strategy.js';
 import type {
+  ButtonClick,
   IncomingMessage,
+  MessageEdit,
   OutgoingMessage,
+  ProcessingTarget,
   ReactionUpdate,
 } from './message.types.js';
 import { MessagingGateway } from './messaging.gateway.js';
@@ -12,7 +19,10 @@ import { MessagingGateway } from './messaging.gateway.js';
 class RecordingStrategy extends ChannelStrategy {
   readonly sent: Omit<OutgoingMessage, 'channel'>[] = [];
   readonly reactions: Omit<ReactionUpdate, 'channel'>[] = [];
+  readonly edits: Omit<MessageEdit, 'channel'>[] = [];
+  readonly processing: Omit<ProcessingTarget, 'channel'>[] = [];
   handler: MessageHandler | null = null;
+  clickHandler: ClickHandler | null = null;
 
   constructor(readonly channel: Channel) {
     super();
@@ -25,6 +35,15 @@ class RecordingStrategy extends ChannelStrategy {
   }
   async react(update: Omit<ReactionUpdate, 'channel'>) {
     this.reactions.push(update);
+  }
+  listenToClicks(handler: ClickHandler) {
+    this.clickHandler = handler;
+  }
+  async edit(edit: Omit<MessageEdit, 'channel'>) {
+    this.edits.push(edit);
+  }
+  async showProcessing(target: Omit<ProcessingTarget, 'channel'>) {
+    this.processing.push(target);
   }
   async download() {
     return Buffer.from(this.channel);
@@ -98,6 +117,76 @@ describe('MessagingGateway', () => {
 
     expect(contexts).toEqual([
       { flow: 'message', channel: 'DISCORD', messageId: 'm1' },
+    ]);
+  });
+
+  it('delivers button clicks in a click log context', async () => {
+    const discord = new RecordingStrategy('DISCORD');
+    const gateway = new MessagingGateway([discord]);
+    const received: { click: ButtonClick; context: unknown }[] = [];
+
+    gateway.onButtonClick(async (click) => {
+      received.push({ click, context: currentLogContext() });
+    });
+    const click: ButtonClick = {
+      channel: 'DISCORD',
+      senderId: 's',
+      messageId: 'recap-1',
+      buttonId: 'ticket:validate:t1',
+    };
+    await discord.clickHandler?.(click);
+
+    expect(received).toEqual([
+      {
+        click,
+        context: { flow: 'click', channel: 'DISCORD', messageId: 'recap-1' },
+      },
+    ]);
+  });
+
+  it('catches click handler errors', async () => {
+    const discord = new RecordingStrategy('DISCORD');
+    const gateway = new MessagingGateway([discord]);
+
+    gateway.onButtonClick(async () => {
+      throw new Error('boom');
+    });
+
+    await expect(
+      discord.clickHandler?.({
+        channel: 'DISCORD',
+        senderId: 's',
+        messageId: 'm1',
+        buttonId: 'b',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('routes the processing indicator to the channel', async () => {
+    const discord = new RecordingStrategy('DISCORD');
+    const gateway = new MessagingGateway([discord]);
+
+    await gateway.showProcessing(
+      { channel: 'DISCORD', recipientId: 'r', messageId: 'm1' },
+      new AbortController().signal,
+    );
+
+    expect(discord.processing).toEqual([{ recipientId: 'r', messageId: 'm1' }]);
+  });
+
+  it('routes message edits to the channel', async () => {
+    const discord = new RecordingStrategy('DISCORD');
+    const gateway = new MessagingGateway([discord]);
+
+    await gateway.edit({
+      channel: 'DISCORD',
+      recipientId: 'r',
+      messageId: 'm1',
+      text: 'done',
+    });
+
+    expect(discord.edits).toEqual([
+      { recipientId: 'r', messageId: 'm1', text: 'done' },
     ]);
   });
 

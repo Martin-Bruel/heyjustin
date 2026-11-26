@@ -1,26 +1,23 @@
-import {
-  ChannelStrategy,
-  type OutgoingMessage,
-  type ReactionUpdate,
-  MessagingGateway,
-  type Channel,
-} from '../../messaging/index.js';
-import type { CompanyRepository } from '../../companies/index.js';
+import { MessagingGateway } from '../../messaging/index.js';
 import {
   PennylaneApiError,
   type PennylaneSupplier,
   type PennylaneSuppliersService,
 } from '../../pennylane/index.js';
-import type { User, UserRepository } from '../../users/index.js';
+import type { User } from '../../users/index.js';
 import {
   Extraction,
   type KnownSupplier,
   ReceiptReaderService,
 } from '../../receipts/index.js';
 import { SourceMessage } from '../models/source-message.js';
-import type { Ticket } from '../models/ticket.js';
 import { TicketFile } from '../models/ticket-file.js';
-import type { TicketRepository } from '../repositories/ticket.repository.js';
+import {
+  fakeCompanies,
+  fakeUsers,
+  inMemoryTickets,
+  RecordingStrategy,
+} from '../testing/ticket-fakes.js';
 import { ExtractTicketService } from './extract-ticket.service.js';
 import {
   ReceiveTicketService,
@@ -30,42 +27,6 @@ import { TicketNotifierService } from './ticket-notifier.service.js';
 import { TicketReactionService } from './ticket-reaction.service.js';
 
 // --- Fakes: only the edges (database, AI, the messaging app itself) ---
-
-/**
- * In-memory stand-in for TicketRepository. A plain object: the real class has a
- * private Prisma field, so TypeScript does not accept another class in its place.
- */
-function inMemoryTickets() {
-  const tickets = new Map<string, Ticket>();
-  const files = new Map<string, TicketFile>();
-  const repository = {
-    findById: async (id: string) => tickets.get(id) ?? null,
-    findBySource: async (source: SourceMessage) =>
-      [...tickets.values()].find((t) => t.source.equals(source)) ?? null,
-    add: async (ticket: Ticket, file: TicketFile) => {
-      tickets.set(ticket.id, ticket);
-      files.set(ticket.id, file);
-    },
-    save: async (ticket: Ticket) => {
-      tickets.set(ticket.id, ticket);
-    },
-    findFile: async (ticketId: string) => files.get(ticketId) ?? null,
-  } satisfies Record<keyof TicketRepository, unknown>;
-  return {
-    repository: repository as unknown as TicketRepository,
-    tickets,
-    files,
-  };
-}
-
-function fakeUsers(users: User[]): UserRepository {
-  return {
-    findById: async (id: string) => users.find((u) => u.id === id) ?? null,
-    findByIdentity: async (channel: Channel, externalId: string) =>
-      users.find((u) => u.channel === channel && u.externalId === externalId) ??
-      null,
-  } as unknown as UserRepository;
-}
 
 /** The AI is an edge: faked by its result (its own spec uses a fake model). */
 function fakeReceiptReader(result: Extraction | Error) {
@@ -83,14 +44,6 @@ function fakeReceiptReader(result: Extraction | Error) {
   return { reader: reader as unknown as ReceiptReaderService, suppliersSeen };
 }
 
-function fakeCompanies(token: string | null): CompanyRepository {
-  const companies = {
-    findPennylaneToken: async () => token,
-    upsertWithPennylaneToken: async () => {},
-  } satisfies Record<keyof CompanyRepository, unknown>;
-  return companies as unknown as CompanyRepository;
-}
-
 /** Pennylane is an edge: faked by its suppliers (its own spec fakes HTTP). */
 function fakePennylaneSuppliers(
   result: PennylaneSupplier[] | Error,
@@ -105,24 +58,6 @@ function fakePennylaneSuppliers(
     },
   } satisfies Record<keyof PennylaneSuppliersService, unknown>;
   return suppliers as unknown as PennylaneSuppliersService;
-}
-
-/** A messaging app that records what we send, plugged into the real gateway. */
-class RecordingStrategy extends ChannelStrategy {
-  readonly channel = 'DISCORD';
-  readonly sent: Omit<OutgoingMessage, 'channel'>[] = [];
-  readonly reactions: Omit<ReactionUpdate, 'channel'>[] = [];
-
-  listen() {}
-  async send(message: Omit<OutgoingMessage, 'channel'>) {
-    this.sent.push(message);
-  }
-  async react(update: Omit<ReactionUpdate, 'channel'>) {
-    this.reactions.push(update);
-  }
-  async download() {
-    return Buffer.from('');
-  }
 }
 
 // --- Setup ---
@@ -187,14 +122,14 @@ function setup(
     notifier,
     reactions,
   );
-  const service = new ReceiveTicketService(tickets, reactions, extract);
+  const service = new ReceiveTicketService(tickets, notifier, extract);
   return { service, tickets: stored, discord, suppliersSeen };
 }
 
 // --- Tests ---
 
 describe('ReceiveTicketService', () => {
-  it('creates the ticket, reacts, extracts and asks for validation', async () => {
+  it('creates the ticket, shows it is processing, extracts and asks for validation', async () => {
     const { service, tickets, discord } = setup();
 
     const ticket = await service.receive(alice, document);
@@ -208,9 +143,10 @@ describe('ReceiveTicketService', () => {
     });
     expect(tickets.files.get(ticket!.id)).toBe(document.file);
 
-    expect(discord.reactions).toEqual([
-      { recipientId: 'discord-alice', messageId: 'm1', emoji: '🕓' },
-    ]);
+    // no reaction before the import: "is typing…", then the recap
+    expect(discord.reactions).toEqual([]);
+    expect(discord.processing.map((p) => p.messageId)).toEqual(['m1']);
+    expect(discord.processing[0].stopped()).toBe(true);
     expect(discord.sent).toHaveLength(1);
     expect(discord.sent[0]).toMatchObject({
       recipientId: 'discord-alice',
@@ -253,7 +189,7 @@ describe('ReceiveTicketService', () => {
       extraction: null,
     });
     expect(suppliersSeen).toEqual([]);
-    expect(discord.reactions.map((r) => r.emoji)).toEqual(['🕓', '❌']);
+    expect(discord.reactions.map((r) => r.emoji)).toEqual(['❌']);
   });
 
   it('fails without reading when Pennylane refuses the token', async () => {
@@ -284,8 +220,19 @@ describe('ReceiveTicketService', () => {
       reason: 'Unreadable document',
       extraction: null,
     });
-    expect(discord.reactions.map((r) => r.emoji)).toEqual(['🕓', '❌']);
+    expect(discord.reactions.map((r) => r.emoji)).toEqual(['❌']);
     expect(discord.sent).toEqual([]);
+    expect(discord.processing[0].stopped()).toBe(true);
+  });
+
+  it('goes on when the processing indicator cannot be shown', async () => {
+    const { service, discord } = setup();
+    discord.processingError = new Error('Discord down');
+
+    const ticket = await service.receive(alice, document);
+
+    expect(ticket!.status).toBe('AWAITING_VALIDATION');
+    expect(discord.sent).toHaveLength(1);
   });
 
   it('ignores a message delivered twice', async () => {
@@ -295,6 +242,6 @@ describe('ReceiveTicketService', () => {
     const second = await service.receive(alice, document);
 
     expect(second).toBeNull();
-    expect(tickets.tickets.size).toBe(1);
+    expect(tickets.rows.size).toBe(1);
   });
 });

@@ -1,6 +1,6 @@
 # 006: Show 🕓 as soon as a receipt is received
 
-Date: 2026-11-20 · Status: accepted
+Date: 2026-11-20 · Status: superseded by [014](014-no-reaction-before-import.md)
 
 ## Context
 

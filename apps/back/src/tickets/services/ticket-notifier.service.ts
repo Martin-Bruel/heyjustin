@@ -8,7 +8,9 @@ import type { SourceMessage } from '../models/source-message.js';
 import type { Ticket } from '../models/ticket.js';
 import {
   EMOJI_BY_REACTION,
+  formatAnsweredRecap,
   formatOneReceiptPerMessage,
+  formatUnsupportedFile,
   formatValidationRecap,
   validationButtons,
 } from './ticket-messages.js';
@@ -38,6 +40,21 @@ export class TicketNotifierService {
     });
   }
 
+  /**
+   * Shows that the user's receipt is being processed (Discord: "is
+   * typing…") until `signal` aborts or our next message.
+   */
+  async showProcessing(ticket: Ticket, signal: AbortSignal): Promise<void> {
+    await this.messagingGateway.showProcessing(
+      {
+        channel: ticket.source.channel,
+        recipientId: await this.recipientOf(ticket),
+        messageId: ticket.source.messageId,
+      },
+      signal,
+    );
+  }
+
   /** Sends the recap as a reply to the user's message, with validate/cancel buttons. */
   async requestValidation(
     ticket: Ticket,
@@ -52,6 +69,31 @@ export class TicketNotifierService {
     });
     this.logger.log('Validation requested', {
       event: TICKET_LOG_EVENTS.validationRequested,
+    });
+  }
+
+  /**
+   * Rewrites the recap with what became of the ticket, without its buttons.
+   * Does nothing while the ticket still awaits an answer.
+   */
+  async showAnswer(ticket: Ticket, recapMessageId: string): Promise<void> {
+    const text = formatAnsweredRecap(ticket.state);
+    if (!text) return;
+    await this.messagingGateway.edit({
+      channel: ticket.source.channel,
+      recipientId: await this.recipientOf(ticket),
+      messageId: recapMessageId,
+      text,
+    });
+  }
+
+  /** Asks the user to send the receipt in a format Pennylane accepts. */
+  async askSupportedFile(source: SourceMessage, sender: User): Promise<void> {
+    await this.messagingGateway.send({
+      channel: source.channel,
+      recipientId: sender.externalId,
+      text: formatUnsupportedFile(),
+      replyToMessageId: source.messageId,
     });
   }
 

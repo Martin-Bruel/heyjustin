@@ -7,5 +7,6 @@ export const MESSAGING_LOG_EVENTS = {
   channelDisconnected: 'messaging.channel.disconnected',
   channelError: 'messaging.channel.error',
   messageReceived: 'messaging.message.received',
+  buttonClicked: 'messaging.button.clicked',
   handlerFailed: 'messaging.message.handler_failed',
 } as const;

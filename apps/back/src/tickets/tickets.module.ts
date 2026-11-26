@@ -5,15 +5,18 @@ import { PennylaneModule } from '../pennylane/index.js';
 import { PrismaModule } from '../prisma/index.js';
 import { ReceiptsModule } from '../receipts/index.js';
 import { UsersModule } from '../users/index.js';
+import { TicketClickHandler } from './handlers/ticket-click.handler.js';
 import { TicketMessageHandler } from './handlers/ticket-message.handler.js';
 import { TicketRepository } from './repositories/ticket.repository.js';
 import { ExtractTicketService } from './services/extract-ticket.service.js';
+import { ImportTicketService } from './services/import-ticket.service.js';
 import { ReceiveTicketService } from './services/receive-ticket.service.js';
 import { TicketNotifierService } from './services/ticket-notifier.service.js';
 import { TicketReactionService } from './services/ticket-reaction.service.js';
+import { ValidationAnswerService } from './services/validation-answer.service.js';
 
 /**
- * Tickets: from a receipt received on any channel to its validation.
+ * Tickets: from a receipt received on any channel to its import into Pennylane.
  *
  * Dependencies only go outward: tickets imports users, messaging, receipts,
  * companies, pennylane and Prisma;
@@ -32,12 +35,15 @@ import { TicketReactionService } from './services/ticket-reaction.service.js';
     PennylaneModule,
   ],
   providers: [
-    // handlers: entry points into tickets (messages from every channel)
+    // handlers: entry points into tickets (messages and clicks from every channel)
     TicketMessageHandler,
+    TicketClickHandler,
 
     // services
     ReceiveTicketService,
     ExtractTicketService,
+    ValidationAnswerService,
+    ImportTicketService,
     TicketReactionService,
     TicketNotifierService,
 

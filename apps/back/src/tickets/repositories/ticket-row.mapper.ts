@@ -44,7 +44,9 @@ export function toTicketRow(ticket: Ticket) {
     vatRateBasisPoints: extraction?.vatRateBasisPoints ?? null,
     currency: extraction?.currency ?? 'EUR',
 
-    pennylaneSupplierId: pennylane?.supplierId ?? null,
+    pennylaneSupplierId:
+      pennylane?.supplierId ??
+      (state.status === 'IMPORTING' ? state.supplierId : null),
     pennylaneInvoiceId: pennylane?.invoiceId ?? null,
     pennylaneTransactionId:
       state.status === 'MATCHED' ? state.transactionId : null,
@@ -91,6 +93,11 @@ const STATE_BUILDERS: StateBuilders = {
   AWAITING_VALIDATION: (row) => ({
     status: 'AWAITING_VALIDATION',
     ...extracted(row),
+  }),
+  IMPORTING: (row) => ({
+    status: 'IMPORTING',
+    ...extracted(row),
+    supplierId: row.pennylaneSupplierId,
   }),
   CANCELLED: (row) => ({ status: 'CANCELLED', ...extracted(row) }),
   PENDING_MATCH: (row) => ({ status: 'PENDING_MATCH', ...imported(row) }),

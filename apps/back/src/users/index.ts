@@ -3,6 +3,7 @@ export { UsersModule } from './users.module.js';
 export { UserRepository } from './repositories/user.repository.js';
 export {
   UserMessagesService,
+  type UserClickHandler,
   type UserMessageHandler,
 } from './services/user-messages.service.js';
 export type { User } from './models/user.js';

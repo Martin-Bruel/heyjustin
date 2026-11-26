@@ -16,12 +16,13 @@ install, no form to fill in.
 4. **Import:** once validated, the invoice is created in the company's Pennylane.
 5. **Match:** heyjustin waits for the matching bank transaction in Pennylane.
 
-The employee follows the progress through the reaction the bot puts on their
-message:
+Until the import, the conversation shows the progress ("is typing…" while
+the receipt is read, then the recap). Then the employee follows it through
+the reaction the bot puts on their message:
 
 | Reaction | Meaning                                                                              |
 | -------- | ------------------------------------------------------------------------------------ |
-| 🕓       | In progress: being read, waiting for validation, or waiting for the bank transaction |
+| 🕓       | Imported in Pennylane, waiting for the bank transaction                              |
 | ✅       | Done: imported and matched with a bank transaction                                   |
 | ⚠️       | Imported, but no transaction found: to match by hand in Pennylane                    |
 | ❌       | Failed: send the receipt again                                                       |

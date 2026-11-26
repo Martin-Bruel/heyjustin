@@ -13,6 +13,12 @@ export type TicketState =
   | { status: 'RECEIVED' }
   /** Data extracted, recap sent to the user for validation. */
   | { status: 'AWAITING_VALIDATION'; extraction: Extraction }
+  /**
+   * Validated by the user, Pennylane import in progress. `supplierId` is set
+   * once the supplier exists (matched, or just created), so that a retry
+   * does not create it again.
+   */
+  | { status: 'IMPORTING'; extraction: Extraction; supplierId: string | null }
   /** Imported in Pennylane, bank transaction not there yet. */
   | {
       status: 'PENDING_MATCH';

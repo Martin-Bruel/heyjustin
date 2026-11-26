@@ -410,6 +410,22 @@ describe('Pennylane', () => {
       expect(sent).toHaveLength(2);
       expect(client.waits).toEqual([2_000]);
     });
+
+    it('finds an invoice by its external reference', async () => {
+      const { client, sent } = fakePennylane(page([{ id: 30 }]), page([]));
+      const invoices = new PennylaneInvoicesService(client);
+
+      expect(await invoices.findByExternalReference(TOKEN, 'ticket-1')).toBe(
+        30,
+      );
+      expect(await invoices.findByExternalReference(TOKEN, 'ticket-2')).toBe(
+        null,
+      );
+      expect(sent[0].url.pathname).toBe('/api/external/v2/supplier_invoices');
+      expect(JSON.parse(sent[0].url.searchParams.get('filter')!)).toEqual([
+        { field: 'external_reference', operator: 'eq', value: 'ticket-1' },
+      ]);
+    });
   });
 
   describe('account', () => {

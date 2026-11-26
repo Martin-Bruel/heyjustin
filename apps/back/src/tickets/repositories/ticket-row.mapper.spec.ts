@@ -49,6 +49,7 @@ describe('ticket row mapper', () => {
   it('round-trips a MATCHED ticket with all its data', () => {
     const ticket = newTicket();
     ticket.recordExtraction(extraction);
+    ticket.startImport();
     ticket.recordPennylaneImport(pennylane);
     ticket.matchTransaction('tx_1');
     ticket.markReactionAsDisplayed('MATCHED');
@@ -58,6 +59,18 @@ describe('ticket row mapper', () => {
     expect(restored.state).toEqual(ticket.state);
     expect(restored.displayedReaction).toBe('MATCHED');
     expect(restored.caption).toBe('lunch');
+  });
+
+  it('round-trips an IMPORTING ticket, before and after its supplier', () => {
+    const ticket = newTicket();
+    ticket.recordExtraction(extraction);
+    ticket.startImport();
+    expect(toTicket(asRow(ticket)).state).toEqual(ticket.state);
+
+    ticket.recordImportSupplier('42');
+    const row = asRow(ticket);
+    expect(row.pennylaneSupplierId).toBe('42');
+    expect(toTicket(row).state).toEqual(ticket.state);
   });
 
   it('round-trips a FAILED ticket, with or without extraction', () => {

@@ -17,11 +17,19 @@ export interface MessageFlow {
   readonly messageId: string;
 }
 
+/** A click on a button of one of our messages, opened by messaging. */
+export interface ClickFlow {
+  readonly flow: 'click';
+  readonly channel: string;
+  /** our message carrying the button */
+  readonly messageId: string;
+}
+
 /**
  * How a flow starts: one member per kind of entry point, with the fields it
- * must provide. Next ones: a click on a recap button, an HTTP request.
+ * must provide. Next one: an HTTP request.
  */
-export type FlowContext = MessageFlow;
+export type FlowContext = MessageFlow | ClickFlow;
 
 /**
  * Added by services once the information is known. Shared by every flow: a

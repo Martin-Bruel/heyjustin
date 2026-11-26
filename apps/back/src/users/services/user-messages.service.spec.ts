@@ -1,4 +1,6 @@
 import type {
+  ButtonClick,
+  ClickHandler,
   MessageHandler,
   IncomingMessage,
   MessagingGateway,
@@ -22,9 +24,13 @@ const alice: User = {
 
 function setup() {
   let gatewayHandler: MessageHandler | null = null;
+  let gatewayClickHandler: ClickHandler | null = null;
   const messaging = {
     onMessage: (handler: MessageHandler) => {
       gatewayHandler = handler;
+    },
+    onButtonClick: (handler: ClickHandler) => {
+      gatewayClickHandler = handler;
     },
   } as unknown as MessagingGateway;
   const users = {
@@ -64,7 +70,19 @@ function setup() {
         }),
     );
 
-  return { deliver, received, contexts, hashed };
+  const clicks: [ButtonClick, User][] = [];
+  service.onUserClick(async (click, sender) => {
+    clicks.push([click, sender]);
+  });
+  const click = (senderId: string) =>
+    gatewayClickHandler!({
+      channel: 'DISCORD',
+      senderId,
+      messageId: 'recap-1',
+      buttonId: 'ticket:validate:t1',
+    });
+
+  return { deliver, received, contexts, hashed, click, clicks };
 }
 
 describe('UserMessagesService', () => {
@@ -91,6 +109,18 @@ describe('UserMessagesService', () => {
     await deliver('stranger');
 
     expect(received).toEqual([]);
+    expect(hashed).toEqual(['stranger']);
+  });
+
+  it('relays clicks of registered users only', async () => {
+    const { click, clicks, hashed } = setup();
+
+    await click('alice');
+    await click('stranger');
+
+    expect(clicks).toHaveLength(1);
+    expect(clicks[0][0].buttonId).toBe('ticket:validate:t1');
+    expect(clicks[0][1]).toBe(alice);
     expect(hashed).toEqual(['stranger']);
   });
 });

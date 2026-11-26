@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { ChannelStrategy, type MessageHandler } from '../channel-strategy.js';
+import {
+  ChannelStrategy,
+  type ClickHandler,
+  type MessageHandler,
+} from '../channel-strategy.js';
 import type {
   IncomingAttachment,
   IncomingMessage,
+  MessageEdit,
   OutgoingMessage,
+  ProcessingTarget,
   ReactionUpdate,
 } from '../message.types.js';
 import { DiscordClient, type DiscordDirectMessage } from './discord.client.js';
@@ -21,6 +27,38 @@ export class DiscordStrategy extends ChannelStrategy {
     this.discordClient.onDirectMessage((message) =>
       handler(toIncomingMessage(message)),
     );
+  }
+
+  listenToClicks(handler: ClickHandler): void {
+    this.discordClient.onButtonClick((click) =>
+      handler({
+        channel: 'DISCORD',
+        senderId: click.userId,
+        messageId: click.messageId,
+        buttonId: click.customId,
+      }),
+    );
+  }
+
+  async edit({
+    recipientId,
+    messageId,
+    text,
+    buttons,
+  }: Omit<MessageEdit, 'channel'>): Promise<void> {
+    await this.discordClient.editDirectMessage({
+      userId: recipientId,
+      messageId,
+      content: text,
+      buttons,
+    });
+  }
+
+  async showProcessing(
+    { recipientId }: Omit<ProcessingTarget, 'channel'>,
+    signal: AbortSignal,
+  ): Promise<void> {
+    await this.discordClient.keepTyping(recipientId, signal);
   }
 
   async send({

@@ -26,6 +26,7 @@ function setup() {
     sender: User;
     receiptCount: number;
   }[] = [];
+  const unsupported: SourceMessage[] = [];
 
   const userMessages = {
     onUserMessage: () => {},
@@ -53,6 +54,9 @@ function setup() {
     ) => {
       requests.push({ source, sender, receiptCount });
     },
+    askSupportedFile: async (source: SourceMessage) => {
+      unsupported.push(source);
+    },
   } as unknown as TicketNotifierService;
 
   return {
@@ -65,6 +69,7 @@ function setup() {
     downloads,
     received,
     requests,
+    unsupported,
   };
 }
 
@@ -121,6 +126,19 @@ describe('TicketMessageHandler', () => {
       sender: alice,
       receiptCount: 2,
     });
+  });
+
+  it('refuses a photo Pennylane does not accept, before reading it', async () => {
+    const { handler, downloads, received, unsupported } = setup();
+
+    await handler.handle(
+      message([{ ref: 'heic', contentType: 'image/heic', filename: null }]),
+      alice,
+    );
+
+    expect(downloads).toEqual([]);
+    expect(received).toEqual([]);
+    expect(unsupported).toEqual([{ channel: 'DISCORD', messageId: 'm1' }]);
   });
 
   it('ignores messages without a receipt file', async () => {
